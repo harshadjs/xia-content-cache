@@ -7,7 +7,7 @@
 #include <string.h>
 #include "xia_cache_req.h"
 #include <errno.h>
-#include "external_cache.h"
+#include "xcache.h"
 
 static ht_t *hash_table;
 
@@ -183,6 +183,12 @@ int hash_fn(void *key)
 	return (sum % BUCKETS);
 }
 
+/**
+ * cmp_fn:
+ * Compare function
+ * @args
+ * @returns
+ */
 int cmp_fn(void *val1, void *val2)
 {
 	cid_node_t *c1, *c2;
@@ -194,6 +200,12 @@ int cmp_fn(void *val1, void *val2)
 			memcmp(&c1->hid, &c2->hid, XID_STRUCT_LEN));
 }
 
+/**
+ * cleanup_fn:
+ * Cleanup function
+ * @args
+ * @returns
+ */
 void cleanup_fn(void *val)
 {
 	cid_node_t *c = (cid_node_t *)val;

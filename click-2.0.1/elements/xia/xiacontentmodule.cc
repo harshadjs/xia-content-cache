@@ -41,7 +41,7 @@ XIAContentModule::~XIAContentModule()
     }
 }
 
-Packet * XIAContentModule::makeChunkResponse(CChunk * chunk, Packet *p_in)
+Packet *XIAContentModule::makeChunkResponse(CChunk * chunk, Packet *p_in)
 {
     XIAHeaderEncap encap;
     XIAHeader hdr(p_in);
@@ -74,9 +74,6 @@ Packet * XIAContentModule::makeChunkPush(CChunk * chunk, Packet *p_in)
     int length=ch.length();
     int chunkSize=ch.chunk_length();
 
-    uint32_t contextID=ch.contextID();
-    uint32_t cacheSize=ch.cacheSize();
-    uint32_t cachePolicy=ch.cachePolicy();
     uint32_t ttl=ch.ttl();
 
 
@@ -89,7 +86,8 @@ Packet * XIAContentModule::makeChunkPush(CChunk * chunk, Packet *p_in)
     encap.set_plen(chunk->GetSize());
 
 //     ContentHeaderEncap  *contenth = ContentHeaderEncap::MakePushHeader(0,  chunk->GetSize() ); //contenth(0, 0, 0, chunk->GetSize());
-    ContentHeaderEncap  contenth( offset, offset, length, chunkSize, ContentHeader::OP_PUSH, contextID, ttl, cacheSize, cachePolicy);
+    ContentHeaderEncap contenth(offset, offset, length, chunkSize,
+								ContentHeader::OP_PUSH, ttl);
 
     uint16_t hdrsize = encap.hdr_size()+ contenth.hlen();
     //build packet
@@ -225,7 +223,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 		}
 	}
 
-#ifdef CLIENTCACHE
+#ifdef CLIENT_CACHE_not_anymore
     if(srcHID == _transport->local_hid()) {
         ContentHeader ch(p);
         if(it!=_contentTable.end() && (content[dstCID]=1)
@@ -418,16 +416,13 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
     int length=ch.length();
     int chunkSize=ch.chunk_length();
 
-	uint32_t contextID=ch.contextID();
-	uint32_t cacheSize=ch.cacheSize();
-    uint32_t cachePolicy=ch.cachePolicy();
     uint32_t ttl=ch.ttl();
 
     HashTable<XID,CChunk*>::iterator it,oit;
     bool chunkFull=false;
     CChunk* chunk;
 
-#ifdef CLIENTCACHE
+#ifdef CLIENT_CACHE_not_anymore
 	struct cacheMeta *cacheEntry=_cacheMetaTable.get(contextID);
 
     if(cacheEntry==NULL) {
@@ -524,7 +519,7 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
             Packet *newp = makeChunkPush(chunk, p);
             _transport->checked_output_push(1 , newp);
 		}
-#ifdef CLIENTCACHE
+#ifdef CLIENT_CACHE_not_anymore
         if (local_putcid || _cache_content_from_network) {
             struct cacheMeta *cm = _cacheMetaTable[contextID];
 			struct contentMeta *ctm =
@@ -582,7 +577,7 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
  * @returns Void
  */ 
 void XIAContentModule::applyLocalCachePolicy(int contextID){
-#ifdef CLIENTCACHE
+#ifdef CLIENT_CACHE_not_anymore
     struct cacheMeta *cm=_cacheMetaTable[contextID];
     switch(cm->policy){
     case POLICY_FIFO:
@@ -688,13 +683,14 @@ const XID* XIAContentModule::findOldestContent(int contextID){
     return minID;
 }
 
-void XIAContentModule::cache_incoming_remove(Packet *p, const XID& srcCID){
+void XIAContentModule::cache_incoming_remove(Packet *p, const XID& srcCID) {
+#ifdef CLIENT_CACHE_not_anymore
+
     XIAHeader xhdr(p); 
     ContentHeader ch(p);
 
-	uint32_t contextID=ch.contextID();
     struct cacheMeta *cm=_cacheMetaTable[contextID];
-    if(cm!=NULL){
+    if(cm!=NULL) {
         HashTable<XID, struct contentMeta*> *cmTable=cm->contentMetaTable;
         struct contentMeta* cPtr=(*cmTable)[srcCID];
         if(cPtr!=NULL){
@@ -723,6 +719,7 @@ void XIAContentModule::cache_incoming_remove(Packet *p, const XID& srcCID){
         }
     }
 
+#endif
 }
 
 void XIAContentModule::cache_management()
@@ -743,7 +740,7 @@ void XIAContentModule::cache_management()
        because the chunks are still used in the _oldPartialTable
        This have created a bug before.  */
     _partialTable.clear();
-#ifdef CLIENTCACHE
+#ifdef CLIENT_CACHE_not_anymore
     cit=_contentTable.begin();
     while(cit!=_contentTable.end()) {
         int contentType=content[cit->first];

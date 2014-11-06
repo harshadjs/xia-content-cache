@@ -4,8 +4,6 @@
 
 #include "../clicknet/xid.h"
 
-typedef int context_id_t;
-
 enum request_t {
 		REQUEST_CACHE_STORE = 0,
 		REQUEST_CACHE_SEARCH,

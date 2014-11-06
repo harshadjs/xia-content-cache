@@ -14,8 +14,8 @@ typedef struct {
 } cid_node_t;
 
 typedef struct {
-	context_id_t context_id;
-	ht_t *cid_ht;
-} context_node_t;
+	dlist_node_t *xcache_lru_list;
+	ht_t *xcache_content_ht;
+} xcache_t;
 
 #endif

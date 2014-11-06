@@ -926,10 +926,7 @@ void XTRANSPORT::ProcessCachePacket(WritablePacket *p_in)
 		xia::X_Pushchunkto_Msg *x_pushchunkto_msg = xia_socket_msg.mutable_x_pushchunkto();
 		x_pushchunkto_msg->set_cid(source_cid.unparse().c_str());
 		x_pushchunkto_msg->set_payload((const char*)xiah.payload(), xiah.plen());
-		x_pushchunkto_msg->set_cachepolicy(ch.cachePolicy());
 		x_pushchunkto_msg->set_ttl(ch.ttl());
-		x_pushchunkto_msg->set_cachesize(ch.cacheSize());
-		x_pushchunkto_msg->set_contextid(ch.contextID());
 		x_pushchunkto_msg->set_length(ch.length());
  		x_pushchunkto_msg->set_ddag(dst_path.unparse().c_str());
 
@@ -2251,7 +2248,6 @@ void XTRANSPORT::XremoveChunk(unsigned short _sport)
 {
 	xia::X_Removechunk_Msg *x_rmchunk_msg = xia_socket_msg.mutable_x_removechunk();
 
-	int32_t contextID = x_rmchunk_msg->contextid();
 	String src(x_rmchunk_msg->cid().c_str(), x_rmchunk_msg->cid().size());
 	//append local address before CID
 	String str_local_addr = _local_addr.unparse_re();
@@ -2270,7 +2266,7 @@ void XTRANSPORT::XremoveChunk(unsigned short _sport)
 	WritablePacket *just_payload_part = WritablePacket::make(256, (const void*)NULL, 0, 0);
 
 	WritablePacket *p = NULL;
-	ContentHeaderEncap  contenth(0, 0, 0, 0, ContentHeader::OP_LOCAL_REMOVECID, contextID);
+	ContentHeaderEncap  contenth(0, 0, 0, 0, ContentHeader::OP_LOCAL_REMOVECID);
 	p = contenth.encap(just_payload_part);
 	p = xiah.encap(p, true);
 
@@ -2283,7 +2279,6 @@ void XTRANSPORT::XremoveChunk(unsigned short _sport)
 	xia::XSocketMsg _socketResponse;
 	_socketResponse.set_type(xia::XREMOVECHUNK);
 	xia::X_Removechunk_Msg *_msg = _socketResponse.mutable_x_removechunk();
-	_msg->set_contextid(contextID);
 	_msg->set_cid(src.c_str());
 	_msg->set_status(0);
 
@@ -2303,10 +2298,7 @@ void XTRANSPORT::XputChunk(unsigned short _sport)
 	
 	xia::X_Putchunk_Msg *x_putchunk_msg = xia_socket_msg.mutable_x_putchunk();
 //			int hasCID = x_putchunk_msg->hascid();
-	int32_t contextID = x_putchunk_msg->contextid();
 	int32_t ttl = x_putchunk_msg->ttl();
-	int32_t cacheSize = x_putchunk_msg->cachesize();
-	int32_t cachePolicy = x_putchunk_msg->cachepolicy();
 
 	String pktPayload(x_putchunk_msg->payload().c_str(), x_putchunk_msg->payload().size());
 	String src;
@@ -2325,8 +2317,8 @@ void XTRANSPORT::XputChunk(unsigned short _sport)
 	}
 
 	if(DEBUG) {
-		click_chatter("ctxID=%d, length=%d, ttl=%d cid=%s\n",
-					  contextID, x_putchunk_msg->payload().size(), ttl, src.c_str());
+		click_chatter("length=%d, ttl=%d cid=%s\n",
+					  x_putchunk_msg->payload().size(), ttl, src.c_str());
 	}
 
 	//append local address before CID
@@ -2366,8 +2358,9 @@ void XTRANSPORT::XputChunk(unsigned short _sport)
 
 	WritablePacket *p = NULL;
 	int chunkSize = pktPayload.length();
-	ContentHeaderEncap  contenth(0, 0, pktPayload.length(), chunkSize, ContentHeader::OP_LOCAL_PUTCID,
-								 contextID, ttl, cacheSize, cachePolicy);
+	ContentHeaderEncap contenth(0, 0, pktPayload.length(), chunkSize,
+								ContentHeader::OP_LOCAL_PUTCID,
+								ttl);
 	p = contenth.encap(just_payload_part);
 	p = xiah.encap(p, true);
 
@@ -2382,13 +2375,10 @@ void XTRANSPORT::XputChunk(unsigned short _sport)
 	xia::XSocketMsg _socketResponse;
 	_socketResponse.set_type(xia::XPUTCHUNK);
 	xia::X_Putchunk_Msg *_msg = _socketResponse.mutable_x_putchunk();
-	_msg->set_contextid(contextID);
 	_msg->set_cid(src.c_str());
 	_msg->set_ttl(ttl);
 	_msg->set_timestamp(timestamp.tv_sec);
 //	_msg->set_hascid(1);
-	_msg->set_cachepolicy(0);
-	_msg->set_cachesize(0);
 	_msg->set_payload(x_putchunk_msg->payload().c_str(), x_putchunk_msg->payload().size());
 
 	std::string p_buf1;
@@ -2405,11 +2395,7 @@ void XTRANSPORT::XpushChunkto(unsigned short _sport, WritablePacket *p_in)
 	xia::X_Pushchunkto_Msg *x_pushchunkto_msg= xia_socket_msg.mutable_x_pushchunkto();
 
 	
-	int32_t contextID = x_pushchunkto_msg->contextid();
 	int32_t ttl = x_pushchunkto_msg->ttl();
-	int32_t cacheSize = x_pushchunkto_msg->cachesize();
-	int32_t cachePolicy = x_pushchunkto_msg->cachepolicy();
-	
 	String pktPayload(x_pushchunkto_msg->payload().c_str(), x_pushchunkto_msg->payload().size());
 	int pktPayloadSize = pktPayload.length();
 	
@@ -2513,8 +2499,9 @@ void XTRANSPORT::XpushChunkto(unsigned short _sport, WritablePacket *p_in)
 	//Add Content header
 // 	ContentHeaderEncap *chdr = ContentHeaderEncap::MakePushHeader();
 	int chunkSize = pktPayload.length();
-	ContentHeaderEncap  contenth(0, 0, pktPayload.length(), chunkSize, ContentHeader::OP_PUSH,
-								 contextID, ttl, cacheSize, cachePolicy);
+	ContentHeaderEncap  contenth(0, 0, pktPayload.length(), chunkSize,
+								 ContentHeader::OP_PUSH,
+								 ttl);
 	
 	
 	

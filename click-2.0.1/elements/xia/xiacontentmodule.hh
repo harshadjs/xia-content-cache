@@ -19,7 +19,6 @@
 
 
 #define CACHESIZE 1024*1024*1024    //only for router cache (endhost cahe is virtually unlimited, but is periodically refreshed)
-#define CLIENTCACHE
 #define PACKETSIZE 1024
 
 #define POLICY_FIFO 1
