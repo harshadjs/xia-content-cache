@@ -1,21 +1,17 @@
-#ifndef __EXTERNAL_CACHE_H__
-#define __EXTERNAL_CACHE_H__
+#ifndef __XCACHE_H__
+#define __XCACHE_H__
 #include "hash_table.h"
 #include <stddef.h>
 #include <stdint.h>
 
 #include "xia_cache_req.h"
 
-typedef struct {
-	struct click_xia_xid cid;
-	struct click_xia_xid hid;
-	int len, full;
-	char *data;
-} cid_node_t;
+#define XCACHE_UDP_PORT 1444
 
 typedef struct {
-	dlist_node_t *xcache_lru_list;
-	ht_t *xcache_content_ht;
-} xcache_t;
+	struct click_xia_xid cid;
+	int len, full;
+	char *data;
+} xcache_node_t;
 
 #endif

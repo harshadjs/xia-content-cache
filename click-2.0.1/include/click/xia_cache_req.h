@@ -5,11 +5,10 @@
 #include "../clicknet/xid.h"
 
 enum request_t {
-		REQUEST_CACHE_STORE = 0,
-		REQUEST_CACHE_SEARCH,
-		REQUEST_CACHE_CLEAR_CONTEXT,
-		REQUEST_CACHE_CLEAR_CID,
-		RESPONSE,
+	XCACHE_STORE = 0,
+	XCACHE_SEARCH,
+	XCACHE_CLEAR,
+	XCACHE_RESPONSE,
 };
 
 struct content_header {
@@ -27,7 +26,7 @@ typedef struct {
 	off_t offset;
 	size_t len;
 	size_t total_len;
-} __attribute__((packed)) cache_req_t;
+} __attribute__((packed)) xcache_req_t;
 
 #define XID_STRUCT_LEN (sizeof(struct click_xia_xid))
 

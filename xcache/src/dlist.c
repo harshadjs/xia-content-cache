@@ -5,7 +5,6 @@
 
 #include <string.h>
 #include "dlist.h"
-#include <stdio.h>
 
 /** Doubly Linked List functions **/
 inline dlist_node_t *dlist_new_node(void)
@@ -126,9 +125,23 @@ void *dlist_search(dlist_node_t **list, void *key, int (*cmp)(void *, void*))
 	return NULL;
 }
 
+dlist_node_t *dlist_search_dlist_node(dlist_node_t **list, void *key, int (*cmp)(void *, void*))
+{
+	dlist_node_t *p = *list;
+
+	while(p) {
+		if(cmp(key, dlist_data(p)) == 0)
+			return p;
+		p = dlist_next(p);
+	}
+
+	return NULL;
+}
+
 inline void dlist_free_node(dlist_node_t *node, void (*cleanup)(void *))
 {
-	cleanup(node->data);
+	if(cleanup)
+		cleanup(node->data);
 	DLIST_FREE(node);
 }
 
@@ -149,24 +162,30 @@ int dlist_remove_head(dlist_node_t **head, void (*cleanup)(void *))
 	dlist_free_node(*head, cleanup);
 
 	*head = p;
-	(*head)->prev = p;
-
+	if(*head) {
+		(*head)->prev = NULL;
+	}
 	return 0;
 }
 
-int dlist_remove_node(dlist_node_t **head, dlist_node_t *node,
+int dlist_remove_node(dlist_node_t **head, dlist_node_t **node,
 					  void (*cleanup)(void *))
 {
-	if(node->next)
-		node->next->prev = node->prev;
+	dlist_node_t *remember;
 
-	if(node->prev)
-		node->prev->next = node->next;
-	else
-		(*head) = node->next;
+	if((*node)->next)
+		(*node)->next->prev = (*node)->prev;
 
-	dlist_free_node(node, cleanup);
+	if((*node)->prev) {
+		(*node)->prev->next = (*node)->next;
+		remember = (*node)->prev;
+	} else {
+		(*head) = (*node)->next;
+		remember = *head;
+	}
+	dlist_free_node(*node, cleanup);
 
+	*node = remember;
 	return 0;
 }
 
@@ -181,11 +200,11 @@ int dlist_find_n_remove_node(dlist_node_t **head, void *key,
 {
 	dlist_node_t *p;
 
-	p = dlist_search(head, key, cmp);
+	p = dlist_search_dlist_node(head, key, cmp);
 	if(!p)
 		return 1;
 
-	return dlist_remove_node(head, p, cleanup);
+	return dlist_remove_node(head, &p, cleanup);
 }
 
 /* Initialize list pointer to null */
@@ -205,5 +224,12 @@ void dlist_dump(dlist_node_t *list, void (*printer)(dlist_node_t *))
 	while(p) {
 		(*printer)(p);
 		p = dlist_next(p);
+	}
+}
+
+void dlist_flush(dlist_node_t **list, void (*cleanup)(void *))
+{
+	while(*list) {
+		dlist_remove_head(list, cleanup);
 	}
 }

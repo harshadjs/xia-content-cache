@@ -1,5 +1,4 @@
 #include <string.h>
-#include <stdio.h>
 #include "hash_table.h"
 
 static inline int bucket_index(ht_t *table, void *node)
@@ -9,6 +8,19 @@ static inline int bucket_index(ht_t *table, void *node)
 	if(hash < 0)
 		hash = -hash;
 	return ((hash) % (table->n_buckets));
+}
+
+int ht_cleanup(ht_t *ht)
+{
+	ht_iter_t iter;
+
+	ht_iter_init(&iter, ht);
+	while(ht_iter_data(&iter)) {
+		ht->cleanup(ht_iter_data(&iter));
+		ht_iter_next(&iter);
+	}
+	HT_FREE(ht);
+	return 0;
 }
 
 ht_t *ht_create(int n_buckets, int (*hash)(void *),
@@ -90,6 +102,7 @@ void ht_iter_next(ht_iter_t *iter)
 
 	if(iter->current_node)
 		iter->current_node = iter->current_node->next;
+
 
 	if(iter->current_node)
 		return;
