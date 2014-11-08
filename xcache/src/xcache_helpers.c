@@ -20,7 +20,7 @@ void dump_buf(char *buf, int len)
 
 	printf("Buf: ");
 	for(i = 0; i < len; i++) {
-		printf("%c", buf[i]);
+		printf("0x%x", buf[i]);
 	}
 	printf("\n");
 }

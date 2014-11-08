@@ -20,12 +20,12 @@ struct content_header {
 } __attribute__((packed));
 
 typedef struct {
-	enum request_t request;
+	uint8_t request;
 	struct content_header ch;
 	struct click_xia_xid hid;
-	off_t offset;
-	size_t len;
-	size_t total_len;
+	uint32_t offset;
+	uint32_t len;
+	uint32_t total_len;
 } __attribute__((packed)) xcache_req_t;
 
 #define XID_STRUCT_LEN (sizeof(struct click_xia_xid))
