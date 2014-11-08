@@ -93,7 +93,7 @@ void XIACache::xia_handle_cache_response(Packet *p_cache)
 {
 	Packet *p;
 	char *payload;
-	cache_req_t *req = (cache_req_t *)(p_cache->data());
+	xcache_req_t *req = (xcache_req_t *)(p_cache->data());
     HashTable<XID,Packet*>::iterator it;
 	XID CID(req->ch.cid);
 
@@ -120,7 +120,7 @@ void XIACache::xia_handle_cache_response(Packet *p_cache)
 		std::cout<<"src_path: "<<hdr.src_path().unparse()<<std::endl;
 	}
 
-	payload = ((char *)req + sizeof(cache_req_t));
+	payload = ((char *)req + sizeof(xcache_req_t));
 
 	_content_module->process_request(p, srcHID, CID, payload, req->len);
 }

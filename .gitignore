@@ -29,7 +29,7 @@ xia.mk
 *.dSYM
 
 # ignore xcache binary
-xcache
+xcache/xcache
 test_basic
 
 # ignore session layer files on this branch only

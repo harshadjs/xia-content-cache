@@ -868,7 +868,7 @@ void XTRANSPORT::ProcessCachePacket(WritablePacket *p_in)
 // 	if (DEBUG){
 // 	click_chatter("Got packet from cache");		
 //  	}
-	
+
 	//Extract the SID/CID
 	XIAHeader xiah(p_in->xia_header());
 	XIAPath dst_path = xiah.dst_path();
@@ -941,8 +941,6 @@ void XTRANSPORT::ProcessCachePacket(WritablePacket *p_in)
 
 		output(API_PORT).push(UDPIPPrep(p2, _dport));
 		return;
-		
-		
 	}
 
 	XIDpair xid_pair;
@@ -950,7 +948,7 @@ void XTRANSPORT::ProcessCachePacket(WritablePacket *p_in)
 	xid_pair.set_dst(source_cid);
 
 	unsigned short _dport = XIDpairToPort.get(xid_pair);
-	
+
 // 	click_chatter(">>packet from processCACHEpackets %d\n", _dport);
 // 	click_chatter("CachePacket, Src: %s, Dest: %s, Local: %s", xiah.dst_path().unparse().c_str(),
 // 			      xiah.src_path().unparse().c_str(), _local_addr.unparse_re().c_str());
@@ -1070,14 +1068,8 @@ void XTRANSPORT::ProcessCachePacket(WritablePacket *p_in)
 // 		      destination_sid.unparse().c_str(), source_cid.unparse().c_str(), dst_path.unparse().c_str(), src_path.unparse().c_str());
 // 		click_chatter("Case 2. Packet to unknown  dst_path: %s, src_path: %s\n", dst_path.unparse().c_str(), src_path.unparse().c_str());
 
-	  
 	}
-	
-	
-	
-	
 
-	
 }
 
 void XTRANSPORT::ProcessXhcpPacket(WritablePacket *p_in)

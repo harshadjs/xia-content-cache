@@ -104,6 +104,7 @@ static int xcache_main_loop(void)
 		recvfrom(s, packet, UDP_MAX_PKT, 0,
 					  (struct sockaddr *)&si_other, &slen);
 
+		printf("Something recevied\n");
 		req = (xcache_req_t *)packet;
 		payload = &packet[sizeof(xcache_req_t)];
 
