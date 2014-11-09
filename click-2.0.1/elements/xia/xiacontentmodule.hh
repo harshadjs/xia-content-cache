@@ -119,8 +119,7 @@ private:
 	HashTable<XID, Packet*> _pendingReqTable;
 #endif
     HashTable<XID,CChunk*> _partialTable;
-    HashTable<XID, CChunk*>_contentTable;
-    HashTable<XID, CChunk*>_oldPartial; /* only used in client. When refresh timer is
+    HashTable<XID, CChunk*> _oldPartial; /* only used in client. When refresh timer is
 										   fired,  _oldPartial is cleared and everything in _partialTable goes to _oldPartial.
 										   It takes two timers to clear on-going partial chunk transfers.  */
 
@@ -137,11 +136,9 @@ private:
     HashTable<XID, int> content;
     Packet *makeChunkResponse(CChunk * chunk, Packet *p_in);
     Packet *makeChunkPush(CChunk * chunk, Packet *p_in);
-    int MakeSpace(int);
 
     //Cache Policy
     void applyLocalCachePolicy(int);
-    const XID* findOldestContent(int);
     bool isExpiredContent(struct contentMeta* cm);
 
     //modify routing table

@@ -31,14 +31,6 @@ XIAContentModule::~XIAContentModule()
         chunk=it->second;
         delete chunk;
     }
-    for(it=_oldPartial.begin(); it!=_oldPartial.end(); it++) {
-        chunk=it->second;
-        delete chunk;
-    }
-    for(it=_contentTable.begin(); it!=_contentTable.end(); it++) {
-        chunk=it->second;
-        delete chunk;
-    }
 }
 
 Packet *XIAContentModule::makeChunkResponse(CChunk * chunk, Packet *p_in)
@@ -174,8 +166,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 	/* forward_to_external_cache(dstCID); */
 #endif
 
-    it = _contentTable.find(dstCID);
-
+#ifdef handle_malicious
 	if(malicious) {
 		/* simple.html vs. simple_malicious_explanation.html */
 		if (malicious &&
@@ -225,6 +216,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 			it=_contentTable.find(fakeCID);
 		}
 	}
+#endif
 
 #ifdef CLIENT_CACHE_not_anymore
     if(srcHID == _transport->local_hid()) {
@@ -275,8 +267,6 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
     // server, router
 #ifdef EXTERNAL_CACHE
 	if(pl && s > 0)
-#else
-    if(it!=_contentTable.end())
 #endif
 	{
         std::cout<<"look up cache in router or server"<<std::endl;
@@ -307,12 +297,19 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
             newp=contenth.encap(newp);
             encap.set_plen(l);	// add XIA header
             newp=encap.encap( newp, false );
-			click_chatter("Found in router cache! CID: %s, Local Address: %s\n", dstCID.unparse().c_str(),  _transport->local_hid().unparse().c_str());
 
-			if(srcHID == _transport->local_hid())
+
+			if(srcHID == _transport->local_hid()) {
+				click_chatter("Found in Local cache! CID: %s, Local Address: %s\n",
+							  dstCID.unparse().c_str(),
+							  _transport->local_hid().unparse().c_str());
 				_transport->checked_output_push(1 , newp);
-			else
+			} else {
+				click_chatter("Found in router cache! CID: %s, Local Address: %s\n",
+							  dstCID.unparse().c_str(),
+							  _transport->local_hid().unparse().c_str());
 				_transport->checked_output_push(0 , newp);
+			}
             std::cout<<"have pushed out"<<std::endl;
             cp += l;
         }
@@ -341,13 +338,7 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 			__func__, _transport->local_hid().unparse().c_str(),
 			srcCID.unparse().c_str());
 	fflush(loggerfp);
-//	forward_to_external_cache(srcCID);
 #endif
-    it=_contentTable.find(srcCID);
-
-    if (it!=_contentTable.end()) {  //already in contentTable
-        content[it->first]=1;
-    } else {
         it=_partialTable.find(srcCID);
         if(it!=_partialTable.end()) { //found in partialTable
             partial[it->first]=1;
@@ -362,8 +353,6 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 				fflush(loggerfp);
 				store_in_external_cache(chunk);
 #endif
-                _contentTable[srcCID]=chunk;
-                content[srcCID]=1;
                 addRoute(srcCID);
                 partial.erase(it->first);
                 _partialTable.erase(it);
@@ -371,7 +360,6 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
         } else {                     //first pkt of a chunk
             CChunk *chunk=new CChunk(srcCID, chunkSize);
             chunk->fill(payload, offset, length);//  allocate space for new chunk
-            MakeSpace(chunkSize);  //lru
 
             if(chunk->full()) {
 #ifdef EXTERNAL_CACHE
@@ -382,8 +370,6 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 				fflush(loggerfp);
 				store_in_external_cache(chunk);
 #endif
-                _contentTable[srcCID]=chunk;
-                content[srcCID]=1;
                 //modify routing table	  //add
                 addRoute(srcCID);
             } else {
@@ -392,21 +378,10 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
             }
             usedSize += chunkSize;
         }
-    }
     //lru refresh
     //printf("lru refresh\n");
     //std::cout<<timer<<std::endl;
     _timer++;
-    if(_timer>=REFRESH) {
-        HashTable<XID,int>::iterator iter;
-        for(iter=content.begin(); iter!=content.end(); iter++) {
-            iter->second=0;
-        }
-        for(iter=partial.begin(); iter!=partial.end(); iter++) {
-            iter->second=0;
-        }
-        _timer=0;
-    }
     p->kill();
     //printf("end: dstHID is not myself\n");
 
@@ -433,54 +408,6 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
 	fflush(loggerfp);
 #endif
 
-#ifdef CLIENT_CACHE_not_anymore
-	struct cacheMeta *cacheEntry=_cacheMetaTable.get(contextID);
-
-    if(cacheEntry==NULL) {
-        struct cacheMeta *cm=(struct cacheMeta *)malloc(sizeof(cacheMeta));
-        cm->curSize=0;
-        cm->maxSize=cacheSize;
-        cm->policy=cachePolicy;
-        cm->contentMetaTable=new HashTable<XID, struct contentMeta*>();
-        _cacheMetaTable[contextID]=cm;
-        if(CACHE_DEBUG){
-            click_chatter("Create new cacheMeta struct for id[%d]\n", contextID);
-        }
-    }
-	HashTable<XID,CChunk*>::iterator cit;
-
-	_timer++;
-	cit=_contentTable.find(srcCID);
-	if(cit!=_contentTable.end()) {
-		/* content exists alreaady */
-		if (pushcid) {
-			/* click_chatter("Pushing something that we already have\n"); */
-			chunk=cit->second;
-			chunk->fill(payload, offset, length);
-			if(chunk->full()) {
-				/* chunkFull=true; */
-				Packet *newp = makeChunkResponse(chunk, p);
-				_transport->checked_output_push(1 , newp);
-			}else
-				click_chatter("Why is a partial chunk in contentTable?\n");
-
-			if(_timer>=REFRESH) {
-                _timer = 0;
-                cache_management();
-			}
-	    } else {
-			if (!local_putcid)
-				content[srcCID]=1;
-			p->kill();
-
-			if(_timer>=REFRESH) {
-				_timer = 0;
-				cache_management();
-			}
-			return;
-	    }
-	}
-#endif
     it=_partialTable.find(srcCID);
 	if(it!=_partialTable.end()) {
 		/* already in partial table */
@@ -536,39 +463,7 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
 		store_in_external_cache(chunk);
 #endif
 
-#ifdef CLIENT_CACHE_not_anymore
-        if (local_putcid || _cache_content_from_network) {
-            struct cacheMeta *cm = _cacheMetaTable[contextID];
-			struct contentMeta *ctm =
-				(struct contentMeta *)malloc(sizeof(contentMeta));
-            HashTable <XID, struct contentMeta*> *cmTable =
-				cm->contentMetaTable;
-
-			cm->curSize += chunkSize;
-            ctm->chunkSize = chunkSize;
-            ctm->ttl = ttl;
-            gettimeofday(&(ctm->timestamp), NULL);
-
-            (*cmTable)[srcCID]=ctm;
-
-            _contentTable[srcCID]=chunk;
-            if (local_putcid) {
-                assert(ContentHeader::OP_LOCAL_PUTCID>1);
-                content[srcCID]= ContentHeader::OP_LOCAL_PUTCID;
-            } else {
-                content[srcCID]= 1;
-            }
-
-            addRoute(srcCID);
-            applyLocalCachePolicy(contextID);
-        } else {
-            if (CACHE_DEBUG)
-                click_chatter("LOCAL %s delete CID %s",_transport->local_hid().unparse().c_str(), srcCID.unparse().c_str());
-            delete chunk;
-        }
-#else
         delete chunk;
-#endif
     }
     if(_timer >= REFRESH) {
         _timer = 0;
@@ -585,70 +480,6 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
  * @returns Void
  */ 
 void XIAContentModule::applyLocalCachePolicy(int contextID){
-#ifdef CLIENT_CACHE_not_anymore
-    struct cacheMeta *cm=_cacheMetaTable[contextID];
-    switch(cm->policy){
-    case POLICY_FIFO:
-		if(CACHE_DEBUG){
-			click_chatter("Cache Size %d/%d\n", cm->curSize, cm->maxSize);
-		}
-		if(cm->maxSize!=0 && cm->curSize>cm->maxSize){
-			bool done=false;
-			HashTable<XID, struct contentMeta*> *cmTable=cm->contentMetaTable;
-			/* Remove expired content until curSize < maxSize */
-			struct contentMeta *cPtr;
-			int chunkSize;
-			HashTable<XID,CChunk*>::iterator cit;
-			cit=_contentTable.begin();
-			while(cit!=_contentTable.end()) {
-				int contentType=content[cit->first];
-				if(contentType == ContentHeader::OP_LOCAL_PUTCID){
-					cPtr=(*cmTable)[cit->first];
-					if(isExpiredContent(cPtr)){
-						chunkSize=cPtr->chunkSize;
-						cm->curSize-=chunkSize;
-						cmTable->erase(cit->first);
-						content.erase(cit->first);
-						if(CACHE_DEBUG){
-							click_chatter("RM [%s] Size: %d\n", cit->first.unparse().c_str(), 
-										  chunkSize);
-						}
-						_contentTable.erase(cit);
-						free(cPtr);
-						if(cm->curSize < cm->maxSize){
-							done=true;
-							break;
-						}
-					}
-				}
-				cit++;
-			}
-			/* Remove old but active contents to make space for new one */
-			if(!done){
-				while(cm->curSize>cm->maxSize){
-					const XID *minID=findOldestContent(contextID);
-					if(minID!=NULL){
-						const XID tmp=*minID;
-						cPtr=(*cmTable)[tmp];
-						chunkSize=cPtr->chunkSize;
-						cm->curSize-=chunkSize;
-						cmTable->erase(tmp);
-						content.erase(tmp);
-						if(CACHE_DEBUG){
-							click_chatter("RM [%s] Size: %d\n", _contentTable.find(tmp)->first.unparse().c_str(), 
-										  chunkSize);
-						}
-						_contentTable.erase(tmp);
-						free(cPtr);
-					}
-				}
-			}
-		}
-		break;
-	default:
-		break;
-    }
-#endif
 }
 
 /**
@@ -657,77 +488,10 @@ void XIAContentModule::applyLocalCachePolicy(int contextID){
  * @returns True if it is expired
  */
 bool XIAContentModule::isExpiredContent(struct contentMeta* cm){
-    int ttl=cm->ttl;
-    struct timeval *thisTime=&(cm->timestamp);    
-    struct timeval curTime;
-    gettimeofday(&curTime,NULL);
-    if(thisTime->tv_sec+ttl >= curTime.tv_sec){
-        return true;
-    }else{
-        return false;
-    }
 }
 
-const XID* XIAContentModule::findOldestContent(int contextID){
-    struct cacheMeta *cm=_cacheMetaTable[contextID];
-    HashTable<XID,CChunk*>::iterator cit;
-    cit=_contentTable.begin();
-    const XID *minID=NULL;
-    struct timeval minTime;
-    gettimeofday(&minTime, NULL);
-    HashTable<XID, struct contentMeta*>* cmTable=cm->contentMetaTable;
-    struct contentMeta *cPtr;
-    while(cit!=_contentTable.end()) {
-        int contentType=content[cit->first];
-        if(contentType == ContentHeader::OP_LOCAL_PUTCID){
-            cPtr=(*cmTable)[cit->first];
-            if(cPtr->timestamp.tv_sec<=minTime.tv_sec){
-                minTime=cPtr->timestamp;
-                minID=&(cit->first);
-            }
-        }
-        cit++;
-    }
-    return minID;
-}
-
-void XIAContentModule::cache_incoming_remove(Packet *p, const XID& srcCID) {
-#ifdef CLIENT_CACHE_not_anymore
-
-    XIAHeader xhdr(p); 
-    ContentHeader ch(p);
-
-    struct cacheMeta *cm=_cacheMetaTable[contextID];
-    if(cm!=NULL) {
-        HashTable<XID, struct contentMeta*> *cmTable=cm->contentMetaTable;
-        struct contentMeta* cPtr=(*cmTable)[srcCID];
-        if(cPtr!=NULL){
-            int chunkSize=cPtr->chunkSize;
-            cm->curSize-=chunkSize;
-            cmTable->erase(srcCID);
-            content.erase(srcCID);
-            if(CACHE_DEBUG){
-				click_chatter("RMCID Request [%s] Size: %d\n", _contentTable.find(srcCID)->first.unparse().c_str(), 
-							  chunkSize);
-            }
-            delRoute(srcCID);
-#ifdef EXTERNAL_CACHE
-			fprintf(loggerfp, "%s:%d: [Remove] local HID: %s, src HID: %s\n",
-					__func__, __LINE__,
-					_transport->local_hid().unparse().c_str(),
-					srcCID.unparse().c_str());
-			fflush(loggerfp);
-//			forward_to_external_cache(srcCID);
-#endif
-            _contentTable.erase(srcCID);
-            free(cPtr);
-            if(CACHE_DEBUG){
-				click_chatter("Cache Size %d/%d\n", cm->curSize, cm->maxSize);
-            }
-        }
-    }
-
-#endif
+void XIAContentModule::cache_incoming_remove(Packet *p, const XID& srcCID)
+{
 }
 
 void XIAContentModule::cache_management()
@@ -748,28 +512,6 @@ void XIAContentModule::cache_management()
        because the chunks are still used in the _oldPartialTable
        This have created a bug before.  */
     _partialTable.clear();
-#ifdef CLIENT_CACHE_not_anymore
-    cit=_contentTable.begin();
-    while(cit!=_contentTable.end()) {
-        int contentType=content[cit->first];
-        if( contentType == 0 ) {
-            HashTable<XID, CChunk*>::iterator pit=cit;
-            _oldPartial[pit->first]=pit->second;
-            delRoute(pit->first);
-            content.erase(pit->first);
-#ifdef EXTERNAL_CACHE
-			fprintf(loggerfp, "%s:%d: [Remove] local HID: %s\n",
-					__func__, __LINE__,
-					_transport->local_hid().unparse().c_str());
-			fflush(loggerfp);
-#endif
-            _contentTable.erase(pit);
-        }else if(contentType != ContentHeader::OP_LOCAL_PUTCID){
-            content[cit->first]=0;
-        }
-        cit++;
-    }
-#endif
 }
 
 /* source ID is the content */
@@ -818,81 +560,6 @@ XIAContentModule::cache_incoming(Packet *p, const XID& srcCID,
 		click_chatter("Calling cache_incoming_forward\n");
         cache_incoming_forward(p, srcCID);
 	}
-}
-
-int
-XIAContentModule::MakeSpace(int chunkSize)
-{
-    while( usedSize + chunkSize > MAXSIZE) {
-        HashTable<XID,int>::iterator i;
-        for(i=partial.begin(); i!=partial.end(); i++)
-            if(i->second==0)
-                break;
-
-
-        if(i!=partial.end()) {
-            HashTable<XID,CChunk*>::iterator iter = _partialTable.find(i->first);
-            usedSize-=iter->second->GetSize();
-
-            CChunk *t=iter->second;
-
-            _partialTable.erase(iter);
-            partial.erase(i);
-
-            delete t;
-            continue;
-        }
-
-        for(i=content.begin(); i!=content.end(); i++) {
-            if(i->second==0)
-                break;
-        }
-
-        if(i!=content.end()) {
-            HashTable<XID,CChunk*>::iterator iter=_contentTable.find(i->first);
-            usedSize-=iter->second->GetSize();
-            // modify the routin table	     //delete
-            delRoute(iter->first);
-            CChunk *t=iter->second;
-#ifdef EXTERNAL_CACHE
-			fprintf(loggerfp, "%s:%d: [Remove] local HID: %s\n",
-					__func__, __LINE__,
-					_transport->local_hid().unparse().c_str());
-			fflush(loggerfp);
-#endif
-            _contentTable.erase(iter);
-            content.erase(i);
-            delete t;
-            continue;
-        }
-
-        HashTable<XID,CChunk*>::iterator iter=_partialTable.begin();
-        if(iter!=_partialTable.end()) {
-            usedSize-=iter->second->GetSize();
-            CChunk *t=iter->second;
-            _partialTable.erase(iter);
-            partial.erase(i);
-            delete t;
-            continue;
-        }
-
-        iter = _contentTable.begin();
-        usedSize-=iter->second->GetSize();
-        //modify routing table	   //delete
-
-        delRoute(iter->first);
-        CChunk *t=iter->second;
-#ifdef EXTERNAL_CACHE
-		fprintf(loggerfp, "%s:%d: [Remove] local HID: %s\n",
-				__func__, __LINE__,
-				_transport->local_hid().unparse().c_str());
-		fflush(loggerfp);
-#endif
-        _contentTable.erase(iter);
-        content.erase(iter->first);
-        delete t;
-    }
-    return 0;
 }
 
 CPart::CPart(unsigned int off, unsigned int len)

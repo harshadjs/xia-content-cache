@@ -154,9 +154,10 @@ void XIACache::push(int port, Packet *p)
     XID dstID(__dstID);
     XID srcID(__srcID);
 
-    if(src_xid_type==_cid_type)  //store, this is chunk response
+    if(src_xid_type == _cid_type)
     {
-		for (int i = 0 ; i <hdr->dnode + hdr->snode; i++ ){
+		/* store, this is chunk response */
+		for (int i = 0 ; i <hdr->dnode + hdr->snode; i++ ) {
 			XID dsthdr(hdr->node[i].xid);
 			/* click_chatter("PUT/REMOVE/FWD: dnode: %d, snode: %d,  i: %d, ID ->
 			   %s\n", hdr->dnode , hdr->snode, i, dsthdr.unparse().c_str() ); */
@@ -168,7 +169,7 @@ void XIACache::push(int port, Packet *p)
 		_content_module->cache_incoming(p, srcID, dstHID, port);
 // This may generate chunk response to port 1 (end-host/application)
     }
-    else if(dst_xid_type==_cid_type)  //look_up,  chunk request
+    else if(dst_xid_type == _cid_type)  //look_up,  chunk request
     {
 		for (int i = 0 ; i <hdr->dnode + hdr->snode; i++ ){
 			XID dsthdr(hdr->node[i].xid);
