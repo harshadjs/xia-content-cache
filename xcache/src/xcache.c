@@ -11,8 +11,13 @@
 #include "xcache_controller.h"
 #include "xia_cache_req.h"
 
+/* Global time counter: incremented every second */
 uint32_t ticks;
+
+/* UDP socket for communication with click */
 static int s;
+
+/* Socket address for click */
 static struct sockaddr_in click_addr;
 
 int xcache_raw_send(uint8_t *data, int len)

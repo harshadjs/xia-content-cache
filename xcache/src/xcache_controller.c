@@ -4,6 +4,10 @@
 #include "xcache_helpers.h"
 #include "xcache_controller.h"
 
+/*
+ * Hash table containing all the slices
+ * Key:HID, Value: xslice
+ */
 static ht_t *xcache_ctrl_ht;
 
 #define BUCKETS 23
