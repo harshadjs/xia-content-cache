@@ -7,13 +7,7 @@
  *
  */
 
-#define CLICK_XIA_XID_TYPE_UNDEF    (0)
-#define CLICK_XIA_XID_TYPE_AD       (0x10)
-#define CLICK_XIA_XID_TYPE_HID      (0x11)
-#define CLICK_XIA_XID_TYPE_CID      (0x12)
-#define CLICK_XIA_XID_TYPE_SID      (0x13)
-#define CLICK_XIA_XID_TYPE_IP       (0x14)
-
+#include <clicknet/xid_types.h>
 
 #pragma pack(push)
 #pragma pack(1)     // without this, the size of the struct would not be 1 byte

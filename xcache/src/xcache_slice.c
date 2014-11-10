@@ -1,4 +1,5 @@
- #include <stdio.h>
+#include <arpa/inet.h>
+#include <stdio.h>
 #include <string.h>
 #include <xcache.h>
 #include <xcache_helpers.h>
@@ -58,7 +59,10 @@ static xcache_node_t *new_xcache_node(xcache_req_t *req)
 	xcache_node->len = req->total_len;
 	xcache_node->data = (uint8_t *)xcache_alloc(xcache_node->len);
 	xcache_node->cid = req->ch.cid;
+	xcache_node->cid.type = CLICK_XIA_XID_TYPE_CID;
 	xcache_node->full = 0;
+	xcache_node->ttl = 50;
+	xcache_node->ticks = ticks;
 
 	return xcache_node;
 }
@@ -129,6 +133,41 @@ void xslice_free(xslice_t *xslice)
 {
 	dlist_flush(&xslice->xcache_lru_list, NULL);
 	ht_cleanup(xslice->xcache_content_ht);
+}
+
+void xslice_send_timeout(xslice_t *xslice, xcache_node_t *node)
+{
+	xcache_req_t req;
+
+	printf("Node timed out\n");
+	memset(&req, 0, sizeof(req));
+	req.request = XCACHE_TIMEOUT;
+
+	req.ch.cid = node->cid;
+	req.ch.cid.type = htonl(CLICK_XIA_XID_TYPE_CID);
+
+	req.hid = xslice->hid;
+	req.hid.type = htonl(CLICK_XIA_XID_TYPE_HID);
+
+	xcache_raw_send((uint8_t *)&req, sizeof(req));
+}
+
+void xslice_handle_timeout(xslice_t *xslice)
+{
+	dlist_node_t *iter = xslice->xcache_lru_list;
+	xcache_node_t *node;
+
+	for(iter = xslice->xcache_lru_list; dlist_data(iter);
+		iter = dlist_next(iter)) {
+		node = (xcache_node_t *)dlist_data(iter);
+		if((ticks - node->ticks) < (node->ttl))
+			continue;
+
+		/* Timed out node */
+		xslice_send_timeout(xslice, node);
+		ht_remove(xslice->xcache_content_ht, node);
+		dlist_remove_node(&xslice->xcache_lru_list, &iter, NULL);
+	}
 }
 
 xslice_t *new_xslice(xcache_req_t *req)

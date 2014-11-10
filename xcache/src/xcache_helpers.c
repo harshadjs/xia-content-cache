@@ -11,7 +11,20 @@ void print_cid(struct click_xia_xid *cid)
 	for(i = 0; i < CLICK_XIA_XID_ID_LEN; i++) {
 		printf("%x", cid->id[i]);
 	}
-	printf("\n");
+}
+
+void xcache_dump_req(xcache_req_t *req)
+{
+	char *request = (req->request == XCACHE_STORE) ? ("STORE")
+		:((req->request == XCACHE_SEARCH) ? ("SEARCH") : ("OTHER"));
+
+	printf("[%s]: [ ", request);
+	print_cid(&req->hid);
+	printf(" : ");
+	print_cid(&req->ch.cid);
+	printf(" ]\n");
+	printf("ttl: %d, request: %d, off: %d, len: %d, tot: %d\n",
+		   req->ch.ttl, req->request, req->offset, req->len, req->total_len);
 }
 
 void dump_buf(char *buf, int len)
@@ -23,14 +36,6 @@ void dump_buf(char *buf, int len)
 		printf("0x%x", buf[i]);
 	}
 	printf("\n");
-}
-
-void dump_request(xcache_req_t *req)
-{
-	char *request = (req->request == XCACHE_STORE) ? ("STORE")
-		:((req->request == XCACHE_SEARCH) ? ("SEARCH") : ("OTHER"));
-
-	printf("Received %s request\n", request);
 }
 
 void *xcache_alloc(size_t size)

@@ -22,5 +22,6 @@ xcache_node_t *xslice_store(xslice_t *xslice, xcache_req_t *req, uint8_t *data);
 xcache_node_t *xslice_search(xslice_t *xslice, xcache_req_t *req);
 xslice_t *new_xslice(xcache_req_t *req);
 void xslice_free(xslice_t *xslice);
+void xslice_handle_timeout(xslice_t *xslice);
 
 #endif

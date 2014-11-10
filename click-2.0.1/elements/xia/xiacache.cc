@@ -17,10 +17,21 @@ CLICK_DECLS
 
 #define EXTERNAL_CACHE
 
+#ifdef EXTERNAL_CACHE
+/*
+ * This hash table saves all the XIACache objects. This is used
+ * when xcache responds. When xcache responds, click can't know about
+ * the corresponding cache object.
+ *
+ * TODO: Handle malicious cache properly
+ */
+static HashTable<XID,XIACache *> XcacheContextTable;
+#endif
+
 XIACache::XIACache()
 {
     cp_xid_type("CID", &_cid_type);
-    // oldPartial=contentTable;
+
     XIATransport *xt;
 #if USERLEVEL
     xt = dynamic_cast<XIATransport*>(this);
@@ -33,6 +44,9 @@ XIACache::XIACache()
 
 XIACache::~XIACache()
 {
+#ifdef EXTERNAL_CACHE
+	XcacheContextTable[srcHID] = NULL;
+#endif
     delete _content_module;
 }
 
@@ -85,11 +99,20 @@ XIACache::configure(Vector<String> &conf, ErrorHandler *errh)
        }
        std::cout<<"pkt size: "<<PKTSIZE<<std::endl;
      */
+#ifdef EXTERNAL_CACHE
+	/* Create context / hash_table entry for this cache object */
+	xcache_new_context(this);
+#endif
     return 0;
 }
 
 #ifdef EXTERNAL_CACHE
-void XIACache::xia_handle_cache_response(Packet *p_cache)
+/**
+ * xia_handle_cache_response:
+ * Handles packets sent by external xcache.
+ * @args p_cache: packet sent by the cache
+ */
+void XIACache::xcache_handle_response(Packet *p_cache)
 {
 	Packet *p;
 	char *payload;
@@ -97,45 +120,62 @@ void XIACache::xia_handle_cache_response(Packet *p_cache)
     HashTable<XID,Packet*>::iterator it;
 	XID CID(req->ch.cid);
 
-	click_chatter("%s: Received response from cache\n", __func__);
-	click_chatter("CID: %s\n", CID.unparse().c_str());
+	if(req->request == XCACHE_TIMEOUT) {
+		/* Content timed out */
+		click_chatter("Timeout request\n");
+		_content_module->delRoute(CID);
+		return;
+	}
 
 	it = _content_module->_pendingReqTable.find(CID);
+	if(it == _content_module->_pendingReqTable.end()) {
+		/* This should not have happened */
+		click_chatter("Content object NOT found\n");
+		return;
+	}
+
+	/* Remebered packet */
 	p = it->second;
 
-    const struct click_xia* hdr = p->xia_header();
+    const struct click_xia *hdr = p->xia_header();
     struct click_xia_xid __srcID = hdr->node[hdr->dnode + hdr->snode - 2].xid;
-
 	XID srcHID(__srcID);
 
-	if(it==_content_module->_pendingReqTable.end()) {
-		click_chatter("Ended\n");
-	} else {
-		click_chatter("Not ended\n");
-	}
-	click_chatter("Removed: srcHID: %s\n", srcHID.unparse().c_str());
-	click_chatter("Removed: from: %s\n", CID.unparse().c_str());
-	{
-		XIAHeader hdr(p);
-		std::cout<<"src_path: "<<hdr.src_path().unparse()<<std::endl;
-	}
+	click_chatter("%s: Received response from cache\n", __func__);
+	click_chatter("CID: %s\n", CID.unparse().c_str());
+	click_chatter("srcHID: %s\n", srcHID.unparse().c_str());
+	click_chatter("myHID: %s\n", local_hid().unparse().c_str());
 
 	payload = ((char *)req + sizeof(xcache_req_t));
-
 	_content_module->process_request(p, srcHID, CID, payload, req->len);
+}
+
+/**
+ * xcache_get_context:
+ * Get context(XIACache object) for packet sent by the cache.
+ */
+XIACache *XIACache::xcache_get_context(Packet *p_cache)
+{
+	xcache_req_t *req = (xcache_req_t *)(p_cache->data());
+	XIACache *xcache;
+	XID srcHID(req->hid);
+
+	click_chatter("Searching context: %s\n", srcHID.unparse().c_str());
+	xcache = XcacheContextTable[srcHID];
+
+	return xcache;
 }
 #endif
 
-void XIACache::push(int port, Packet *p)
+void XIACache::xcache_push(int port, Packet *p)
 {
     const struct click_xia* hdr;
-
-	click_chatter("\n>> In XIACAche port: %d\n", port);
+	XIACache *xcache;
 
 #ifdef EXTERNAL_CACHE
 	if(port == 2) {
-		click_chatter("\n>> Calling xia_handle_cache_response\n");
-		xia_handle_cache_response(p);
+		click_chatter("[2]: Calling xia_handle_cache_response\n");
+		xcache_handle_response(p);
 		return;
 	}
 #endif
@@ -157,7 +197,7 @@ void XIACache::push(int port, Packet *p)
     if(src_xid_type == _cid_type)
     {
 		/* store, this is chunk response */
-		for (int i = 0 ; i <hdr->dnode + hdr->snode; i++ ) {
+		for (int i = 0; i <hdr->dnode + hdr->snode; i++ ) {
 			XID dsthdr(hdr->node[i].xid);
 			/* click_chatter("PUT/REMOVE/FWD: dnode: %d, snode: %d,  i: %d, ID ->
 			   %s\n", hdr->dnode , hdr->snode, i, dsthdr.unparse().c_str() ); */
@@ -165,30 +205,23 @@ void XIACache::push(int port, Packet *p)
 
 		__dstID =  hdr->node[hdr->dnode - 2].xid;
 		XID dstHID(__dstID);
-// 	click_chatter("dstHID: %s\n", dstHID.unparse().c_str() );
+		/* click_chatter("dstHID: %s\n", dstHID.unparse().c_str() ); */
 		_content_module->cache_incoming(p, srcID, dstHID, port);
-// This may generate chunk response to port 1 (end-host/application)
+		/* This may generate chunk response to port 1 (end-host/application) */
     }
     else if(dst_xid_type == _cid_type)  //look_up,  chunk request
     {
-		for (int i = 0 ; i <hdr->dnode + hdr->snode; i++ ){
-			XID dsthdr(hdr->node[i].xid);
-// 		click_chatter("REQUEST: dnode: %d, snode: %d,  i: %d, ID -> %s\n", hdr->dnode , hdr->snode, i, dsthdr.unparse().c_str() );
-		}
-
 		__srcID = hdr->node[hdr->dnode + hdr->snode - 2].xid;
 		XID srcHID(__srcID);
-		click_chatter("Adding :srcHID: %s\n", srcHID.unparse().c_str());
-		click_chatter("Adding at %s\n", dstID.unparse().c_str());
 
-		/* this sends chunk response to output 0 (network) or to 1 (application, if the request came from application and content is locally cached)  */
+		/* this sends chunk response to output 0 (network) or to 1 (application,
+		 * if the request came from application and content is locally cached)  */
 #ifdef EXTERNAL_CACHE
 		_content_module->search_external_cache(dstID);
+		click_chatter("[%s] Pending request added for %s\n",
+					  _local_hid.unparse().c_str(),
+					  dstID.unparse().c_str());
 		_content_module->_pendingReqTable[dstID] = p->clone();
-		{
-			XIAHeader hdr(p);
-			std::cout<<"src_path: "<<hdr.src_path().unparse()<<std::endl;
-		}
 		return;
 #else
 		_content_module->process_request(p, srcHID, dstID);
@@ -203,6 +236,35 @@ void XIACache::push(int port, Packet *p)
     }
 }
 
+
+void XIACache::push(int port, Packet *p)
+{
+    const struct click_xia *hdr;
+	XIACache *xcache = NULL;
+    struct click_xia_xid __dstID;
+    uint32_t dst_xid_type;
+    struct click_xia_xid __srcID;
+    uint32_t src_xid_type;
+
+	click_chatter("===================== PUSH[%d] ======================\n", port);
+	click_chatter("myaddr: %s\b",_local_hid.unparse().c_str());
+
+
+	if(port == 2) {
+		/* Packet came from cache */
+		xcache = xcache_get_context(p);
+	} else {
+		xcache = this;
+	}
+
+	if(!xcache) {
+		click_chatter("Setting context failed. xcache is NULL\n");
+	} else {
+		click_chatter("Context Found\n");
+		xcache->xcache_push(port, p);
+	}
+	click_chatter("==================================\n");
+}
 int
 XIACache::set_malicious(int m)
 {
@@ -256,6 +318,16 @@ XIACache::read_handler(Element *e, void *thunk)
 			return "<error>";
     }
 }
+
+#ifdef EXTERNAL_CACHE
+void XIACache::xcache_new_context(XIACache *xcache) {
+	XID xid(xcache->_local_hid.xid());
+
+	click_chatter("Creating new context\n");
+	click_chatter("Searching context: %s\n", xcache->_local_hid.unparse().c_str());
+	XcacheContextTable[xcache->_local_hid] = xcache;
+};
+#endif
 
 void XIACache::add_handlers() {
     add_write_handler("local_addr", write_param, (void *)H_MOVE);

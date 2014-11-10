@@ -119,11 +119,6 @@ private:
 	HashTable<XID, Packet*> _pendingReqTable;
 #endif
     HashTable<XID,CChunk*> _partialTable;
-    HashTable<XID, CChunk*> _oldPartial; /* only used in client. When refresh timer is
-										   fired,  _oldPartial is cleared and everything in _partialTable goes to _oldPartial.
-										   It takes two timers to clear on-going partial chunk transfers.  */
-
-    HashTable<int, cacheMeta*> _cacheMetaTable;
 
     unsigned int usedSize;
     static const unsigned int MAXSIZE=CACHESIZE;

@@ -12,7 +12,10 @@
 typedef struct {
 	struct click_xia_xid cid;
 	int len, full;
+	uint32_t ticks, ttl;
 	uint8_t *data;
 } xcache_node_t;
 
+extern uint32_t ticks;
+int xcache_raw_send(uint8_t *data, int len);
 #endif

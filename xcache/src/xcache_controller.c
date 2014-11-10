@@ -65,6 +65,17 @@ int xctrl_add_xslice(xslice_t *xslice)
 	return ht_add(xcache_ctrl_ht, xslice);
 }
 
+void xctrl_handle_timeout(void)
+{
+	ht_iter_t iter;
+
+	ht_iter_init(&iter, xcache_ctrl_ht);
+	while(ht_iter_data(&iter)) {
+		xslice_handle_timeout(ht_iter_data(&iter));
+		ht_iter_next(&iter);
+	}
+}
+
 int xctrl_init(void)
 {
 	xcache_ctrl_ht = ht_create(BUCKETS, xctrl_hash, xctrl_cmp, xctrl_cleanup);

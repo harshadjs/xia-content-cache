@@ -3,10 +3,12 @@
 #include <stddef.h>
 
 #include "../clicknet/xid.h"
+#include "../clicknet/xid_types.h"
 
 enum request_t {
 	XCACHE_STORE = 0,
 	XCACHE_SEARCH,
+	XCACHE_TIMEOUT,
 	XCACHE_CLEAR,
 	XCACHE_RESPONSE,
 };

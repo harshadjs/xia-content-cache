@@ -123,7 +123,7 @@ void XIAContentModule::store_in_external_cache(CChunk *chunk)
 			   bytes_to_send);
 		pkt = Packet::make(0, buf, bytes_to_send + sizeof(xcache_req_t), 0);
 
-		_transport->checked_output_push(2 , pkt);
+		_transport->checked_output_push(2, pkt);
 
 		bytes_sent += bytes_to_send;
 	} while(bytes_sent < chunk->GetSize());
@@ -135,6 +135,7 @@ void XIAContentModule::search_external_cache(const XID &CID)
 	WritablePacket *pkt;
 
 	click_chatter("Sending search request to external cache\n");
+	click_chatter("My HID: %s\n", _transport->local_hid().unparse().c_str());
 	req.request = XCACHE_SEARCH;
 	req.len = 0;
 	req.offset = 0;
@@ -144,7 +145,7 @@ void XIAContentModule::search_external_cache(const XID &CID)
 	req.ch.cid = CID.xid();
 
 	pkt = Packet::make(0, &req , sizeof(xcache_req_t), 0);
-	_transport->checked_output_push(2 , pkt);
+	_transport->checked_output_push(2, pkt);
 }
 #endif
 
@@ -265,10 +266,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
     }
 #endif
     // server, router
-#ifdef EXTERNAL_CACHE
-	if(pl && s > 0)
-#endif
-	{
+	if(pl && s > 0)	{
         std::cout<<"look up cache in router or server"<<std::endl;
         XIAHeaderEncap encap;
         XIAHeader hdr(p);
@@ -287,32 +285,37 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
         // add content header   dataoffset
         unsigned int cp=0;
         ContentHeaderEncap  dummy_contenth(0, 0, 0, 0);
+		if(srcHID == _transport->local_hid()) {
+            ContentHeaderEncap  contenth(0, 0, 0, s);
+            uint16_t hdrsize = encap.hdr_size()+ contenth.hlen();
+            WritablePacket *newp = Packet::make(hdrsize, pl, s, 20);
 
-        while(cp < s) {
-            uint16_t hdrsize = encap.hdr_size()+ dummy_contenth.hlen();
-            int l= (s-cp) < (PKTSIZE - hdrsize) ? (s-cp) : (PKTSIZE - hdrsize);
-            ContentHeaderEncap  contenth(0, cp, l, s);
-            //build packet
-            WritablePacket *newp = Packet::make(hdrsize, pl + cp , l, 20 );
             newp=contenth.encap(newp);
-            encap.set_plen(l);	// add XIA header
-            newp=encap.encap( newp, false );
+            newp=encap.encap( newp, false );	      // add XIA header
 
+			click_chatter("Found in Local cache! CID: %s, Local Address: %s\n",
+						  dstCID.unparse().c_str(),
+						  _transport->local_hid().unparse().c_str());
+			_transport->checked_output_push(1 , newp);
+		} else {
+			while(cp < s) {
+				uint16_t hdrsize = encap.hdr_size()+ dummy_contenth.hlen();
+				int l= (s-cp) < (PKTSIZE - hdrsize) ? (s-cp) : (PKTSIZE - hdrsize);
+				ContentHeaderEncap  contenth(0, cp, l, s);
+				//build packet
+				WritablePacket *newp = Packet::make(hdrsize, pl + cp , l, 20 );
+				newp=contenth.encap(newp);
+				encap.set_plen(l);	// add XIA header
+				newp=encap.encap( newp, false );
 
-			if(srcHID == _transport->local_hid()) {
-				click_chatter("Found in Local cache! CID: %s, Local Address: %s\n",
-							  dstCID.unparse().c_str(),
-							  _transport->local_hid().unparse().c_str());
-				_transport->checked_output_push(1 , newp);
-			} else {
 				click_chatter("Found in router cache! CID: %s, Local Address: %s\n",
 							  dstCID.unparse().c_str(),
 							  _transport->local_hid().unparse().c_str());
 				_transport->checked_output_push(0 , newp);
+				std::cout<<"have pushed out"<<std::endl;
+				cp += l;
 			}
-            std::cout<<"have pushed out"<<std::endl;
-            cp += l;
-        }
+		}
         p->kill();
     } else { //printf("dstID is not found in cache, pkt killed\n");
         std::cout<<"not found, kill pkt"<<std::endl;
@@ -325,8 +328,8 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 {
     XIAHeader xhdr(p);  // parse xia header and locate nodes and payload
     ContentHeader ch(p);
-
     const unsigned char *payload=xhdr.payload();
+
     int offset=ch.chunk_offset();
     int length=ch.length();
     int chunkSize=ch.chunk_length();
@@ -339,52 +342,51 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 			srcCID.unparse().c_str());
 	fflush(loggerfp);
 #endif
-        it=_partialTable.find(srcCID);
-        if(it!=_partialTable.end()) { //found in partialTable
-            partial[it->first]=1;
-            CChunk *chunk=it->second;
-            chunk->fill(payload, offset, length);
-            if(chunk->full()) {
+	it=_partialTable.find(srcCID);
+	if(it!=_partialTable.end()) { //found in partialTable
+		partial[it->first]=1;
+		CChunk *chunk=it->second;
+		chunk->fill(payload, offset, length);
+		if(chunk->full()) {
 #ifdef EXTERNAL_CACHE
-				fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
-						__func__, __LINE__,
-						_transport->local_hid().unparse().c_str(),
-						srcCID.unparse().c_str());
-				fflush(loggerfp);
-				store_in_external_cache(chunk);
+			fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
+					__func__, __LINE__,
+					_transport->local_hid().unparse().c_str(),
+					srcCID.unparse().c_str());
+			fflush(loggerfp);
+			store_in_external_cache(chunk);
 #endif
-                addRoute(srcCID);
-                partial.erase(it->first);
-                _partialTable.erase(it);
-            }
-        } else {                     //first pkt of a chunk
-            CChunk *chunk=new CChunk(srcCID, chunkSize);
-            chunk->fill(payload, offset, length);//  allocate space for new chunk
+			addRoute(srcCID);
+			partial.erase(it->first);
+			_partialTable.erase(it);
+		}
+	} else {                     //first pkt of a chunk
+		CChunk *chunk=new CChunk(srcCID, chunkSize);
+		chunk->fill(payload, offset, length);//  allocate space for new chunk
 
-            if(chunk->full()) {
+		if(chunk->full()) {
 #ifdef EXTERNAL_CACHE
-				fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
-						__func__, __LINE__,
-						_transport->local_hid().unparse().c_str(),
-						srcCID.unparse().c_str());
-				fflush(loggerfp);
-				store_in_external_cache(chunk);
+			fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
+					__func__, __LINE__,
+					_transport->local_hid().unparse().c_str(),
+					srcCID.unparse().c_str());
+			fflush(loggerfp);
+			store_in_external_cache(chunk);
 #endif
-                //modify routing table	  //add
-                addRoute(srcCID);
-            } else {
-                _partialTable[srcCID]=chunk;
-                partial[srcCID]=1;
-            }
-            usedSize += chunkSize;
-        }
+			//modify routing table	  //add
+			addRoute(srcCID);
+		} else {
+			_partialTable[srcCID]=chunk;
+			partial[srcCID]=1;
+		}
+		usedSize += chunkSize;
+	}
     //lru refresh
     //printf("lru refresh\n");
     //std::cout<<timer<<std::endl;
     _timer++;
     p->kill();
     //printf("end: dstHID is not myself\n");
-
 }
 
 void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool local_putcid, bool pushcid)
@@ -418,27 +420,14 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
             _partialTable.erase(it);
         }
     } else {
-        oit=_oldPartial.find(srcCID);
-		if(oit!=_oldPartial.end()) {
-			/* already in old partial table */
-            chunk=oit->second;
-            chunk->fill(payload, offset, length);
-            _oldPartial.erase(oit);
-            if(chunk->full()) {
-                chunkFull=true;
-            } else {
-                _partialTable[srcCID]=chunk;
-            }
+		/* first pkt to the client */
+		chunk=new CChunk(srcCID, chunkSize);
+		chunk->fill(payload, offset, length);
+		if(chunk->full()){
+			chunkFull=true;
 		} else {
-			/* first pkt to the client */
-            chunk=new CChunk(srcCID, chunkSize);
-            chunk->fill(payload, offset, length);
-            if(chunk->full()){
-                chunkFull=true;
-            }else{
-                _partialTable[srcCID]=chunk;
-            }
-        }
+			_partialTable[srcCID]=chunk;
+		}
     }
 
     if(chunkFull) {
@@ -500,17 +489,7 @@ void XIAContentModule::cache_management()
     HashTable<XID,CChunk*>::iterator it;
     CChunk *chunk = NULL;
 
-    for(it=_oldPartial.begin(); it!=_oldPartial.end(); it++) {
-        chunk=it->second;
-        if (CACHE_DEBUG)
-            click_chatter("oldPartial %s delete CID %s",_transport->local_hid().unparse().c_str(), chunk->id().unparse().c_str());
-        delete chunk;
-    }
-    _oldPartial.clear();
-    _oldPartial=_partialTable;
-    /* Never delete chunk in the _partialTable here
-       because the chunks are still used in the _oldPartialTable
-       This have created a bug before.  */
+	/* TODO: Don't clear partialTable, there might be ongoing transfers */
     _partialTable.clear();
 }
 
@@ -544,7 +523,6 @@ XIAContentModule::cache_incoming(Packet *p, const XID& srcCID,
 		 */
 		click_chatter("Calling cache_incoming_local\n");
         cache_incoming_local(p, srcCID, local_putcid, local_pushcid);
-		click_chatter("Finished cache_incoming_local\n");
     } else if(local_removecid) {
 		/*
 		 * printf("cache_incoming_remove - local HID: %s, Dest HID: %s\n",

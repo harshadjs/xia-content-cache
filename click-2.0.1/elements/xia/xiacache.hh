@@ -44,6 +44,7 @@ class XIACache : public Element {
     const char *processing() const		{ return PUSH; }
     int configure(Vector<String> &, ErrorHandler *);
     void push(int port, Packet *);
+    void xcache_push(int port, Packet *);
     XID local_hid() { return _local_hid; };
     XIAPath local_addr() { return _local_addr; };
     void add_handlers();
@@ -52,14 +53,15 @@ class XIACache : public Element {
 	int set_malicious(int m);
 	int get_malicious();
 #ifdef EXTERNAL_CACHE
-	void xia_handle_cache_response(Packet *p);
+	void xcache_handle_response(Packet *p);
+	static void xcache_new_context(XIACache *xcache);
+	static XIACache *xcache_get_context(Packet *p_cache);
 #endif
   private:
     uint32_t _cid_type;
     XID _local_hid;
     XIAPath _local_addr;
     XIAContentModule* _content_module;
-
 };
 
 CLICK_ENDDECLS
