@@ -45,7 +45,7 @@ XIACache::XIACache()
 XIACache::~XIACache()
 {
 #ifdef EXTERNAL_CACHE
-	XcacheContextTable[srcHID] = NULL;
+	XcacheContextTable[_local_hid] = NULL;
 #endif
     delete _content_module;
 }
