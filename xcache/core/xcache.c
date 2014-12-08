@@ -28,7 +28,7 @@ int xcache_raw_send(uint8_t *data, int len)
 				  sizeof(struct sockaddr));
 }
 
-static xcache_node_t *xcache_store(xcache_req_t *req, uint8_t *data)
+static xcache_meta_t *xcache_store(xcache_req_t *req, uint8_t *data)
 {
 	xslice_t *xslice = xctrl_search(req);
 
@@ -42,7 +42,9 @@ static xcache_node_t *xcache_store(xcache_req_t *req, uint8_t *data)
 }
 
 static void
-xcache_fragment_and_send(xcache_node_t *xcache_node, xslice_t *xslice)
+xcache_fragment_and_send(xcache_meta_t *xcache_node,
+						 xslice_t *xslice,
+						 uint8_t *data)
 {
 	uint8_t packet[UDP_MAX_PKT], *payload;
 	xcache_req_t *response = (xcache_req_t *)packet;
@@ -64,7 +66,7 @@ xcache_fragment_and_send(xcache_node_t *xcache_node, xslice_t *xslice)
 		response->len = MIN(1000, (xcache_node->len - sent));
 		response->total_len = xcache_node->len;
 
-		memcpy(payload, xcache_node->data + sent, response->len);
+		memcpy(payload, data + sent, response->len);
 		sendto(s, packet, sizeof(xcache_req_t) + response->len, 0,
 			   (struct sockaddr *)&click_addr, sizeof(struct sockaddr));
 		sent += response->len;
@@ -75,23 +77,24 @@ static void
 xcache_search_and_respond(xcache_req_t *req)
 {
 	xslice_t *xslice = xctrl_search(req);
-	xcache_node_t *xcache_node;
+	xcache_meta_t *xcache_node;
+	uint8_t *data;
 
 	if(!xslice) {
 		/* First request for this client */
 		xslice = new_xslice(req);
 		xctrl_add_xslice(xslice);
 		/* click knows if we have the object or not */
-		/* XXX: But, we can send a DENY */
+		/* TODO XXX: But, we can send a DENY */
 		return;
 	}
 
-	xcache_node = xslice_search(xslice, req);
-	if(!xcache_node || !xcache_node->full)
+	data = xslice_search(&xcache_node, xslice, req);
+	if(!xcache_node || !data /* || !xcache_node->full */)
 		/* XXX: Again, send a DENY */
 		return;
 
-	xcache_fragment_and_send(xcache_node, xslice);
+	xcache_fragment_and_send(xcache_node, xslice, data);
 }
 
 static void xcache_inboud_udp(void)

@@ -18,3 +18,5 @@ bin: $(TARGETS)
 
 clean:
 	make -C core clean
+	make -C plugins clean
+	make -C bin clean

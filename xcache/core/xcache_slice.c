@@ -4,13 +4,14 @@
 #include <xcache.h>
 #include <xcache_helpers.h>
 #include <xcache_slice.h>
+#include <xcache_plugins.h>
 #include "xcache_main.h"
 
 #define BUCKETS 23
 static int xslice_hash(void *key)
 {
 	int i, sum = 0;
-	xcache_node_t *c = (xcache_node_t *)key;
+	xcache_meta_t *c = (xcache_meta_t *)key;
 
 	for(i = 0; i < CLICK_XIA_XID_ID_LEN; i++)
 		sum += c->cid.id[i];
@@ -26,10 +27,10 @@ static int xslice_hash(void *key)
  */
 static int xslice_cmp(void *val1, void *val2)
 {
-	xcache_node_t *c1, *c2;
+	xcache_meta_t *c1, *c2;
 
-	c1 = (xcache_node_t *)val1;
-	c2 = (xcache_node_t *)val2;
+	c1 = (xcache_meta_t *)val1;
+	c2 = (xcache_meta_t *)val2;
 
 	return memcmp(c1->cid.id, c2->cid.id, CLICK_XIA_XID_ID_LEN);
 }
@@ -42,101 +43,84 @@ static int xslice_cmp(void *val1, void *val2)
  */
 static void xslice_cleanup(void *val)
 {
-	xcache_node_t *c = (xcache_node_t *)val;
+	xcache_meta_t *c = (xcache_meta_t *)val;
 
 	if(!c)
 		return;
 
-	if(c->data)
-		xcache_free(c->data);
 	xcache_free(c);
 }
 
-static xcache_node_t *new_xcache_node(xcache_req_t *req)
+static void xcache_addto_expiry_list(xslice_t *xslice, xcache_meta_t *meta)
 {
-	xcache_node_t *xcache_node;
+	/* TODO: Fill */
+	return;
+}
 
-	xcache_node = (xcache_node_t *)xcache_alloc(sizeof(xcache_node_t));
+static xcache_meta_t *new_xcache_node(xcache_req_t *req)
+{
+	xcache_meta_t *xcache_node;
+
+	xcache_node = (xcache_meta_t *)xcache_alloc(sizeof(xcache_meta_t));
 	xcache_node->len = req->total_len;
-	xcache_node->data = (uint8_t *)xcache_alloc(xcache_node->len);
 	xcache_node->cid = req->ch.cid;
 	xcache_node->cid.type = CLICK_XIA_XID_TYPE_CID;
 	xcache_node->full = 0;
+	/* TODO XXX: TTL = 50? */
 	xcache_node->ttl = 50;
 	xcache_node->ticks = ticks;
 
 	return xcache_node;
 }
 
-xcache_node_t *xslice_search(xslice_t *xslice, xcache_req_t *req)
+uint8_t *xslice_search(xcache_meta_t **xcache_node, xslice_t *xslice,
+					   xcache_req_t *req)
 {
-	xcache_node_t c, *xcache_node;
+	xcache_meta_t c;
 
 	c.cid = req->ch.cid;
 
-	xcache_node = (xcache_node_t *)ht_search(xslice->xcache_content_ht, &c);
+	*xcache_node = (xcache_meta_t *)ht_search(xslice->meta_ht, &c);
+	if(!*xcache_node)
+		return NULL;
 
-	if(xcache_node)
-		return xcache_node;
-
-	return NULL;
+	return xcache_plugin_search(xslice, *xcache_node);
 }
 
-static void xslice_apply_policy(xslice_t *xslice)
+xcache_meta_t *xslice_store(xslice_t *xslice, xcache_req_t *req, uint8_t *data)
 {
-	dlist_node_t *tobe_removed;
-	xcache_node_t *node;
+	xcache_meta_t *xcache_node;
 
-	if(xslice->cur_size <= xslice->max_size)
-		return;
+	xslice_search(&xcache_node, xslice, req);
 
-	while(xslice->cur_size > xslice->max_size) {
-		tobe_removed = xslice->xcache_lru_list;
-		if(!tobe_removed)
-			return;
-
-		node = dlist_data(tobe_removed);
-		dlist_remove_head(&xslice->xcache_lru_list, NULL);
-		ht_remove(xslice->xcache_content_ht, dlist_data(tobe_removed));
-		xslice->cur_size -= node->len;
-	}
-}
-
-xcache_node_t *xslice_store(xslice_t *xslice, xcache_req_t *req, uint8_t *data)
-{
-	xcache_node_t *xcache_node;
-
-	xcache_node = xslice_search(xslice, req);
-
-	if((xcache_node) && (xcache_node->full)) {
+	if((xcache_node) /* && (xcache_node->full) */ ) {
 		/* XXX: Should we modify it? */
 		return NULL;
 	}
 
-	if(!xcache_node) {
-		xcache_node = new_xcache_node(req);
-		ht_add(xslice->xcache_content_ht, xcache_node);
-		xslice->cur_size += xcache_node->len;
-		xslice_apply_policy(xslice);
-	}
+	xcache_node = new_xcache_node(req);
+	ht_add(xslice->meta_ht, xcache_node);
 
+#ifdef __not_yet
 	if(req->offset + req->len == xcache_node->len) {
 		xcache_node->full = 1;
-		dlist_insert_tail(&xslice->xcache_lru_list, xcache_node);
+		dlist_insert_tail(&xslice->expiry_list, xcache_node);
 	}
+#endif
 
-	memcpy(xcache_node->data + req->offset, data, req->len);
+	xcache_addto_expiry_list(xslice, xcache_node);
+	xcache_plugin_store(xslice, xcache_node, data);
 
 	return xcache_node;
 }
 
 void xslice_free(xslice_t *xslice)
 {
-	dlist_flush(&xslice->xcache_lru_list, NULL);
-	ht_cleanup(xslice->xcache_content_ht);
+	dlist_flush(&xslice->expiry_list, NULL);
+	ht_cleanup(xslice->meta_ht);
 }
 
-void xslice_send_timeout(xslice_t *xslice, xcache_node_t *node)
+void xslice_send_timeout(xslice_t *xslice, xcache_meta_t *node)
 {
 	xcache_req_t req;
 
@@ -155,19 +139,21 @@ void xslice_send_timeout(xslice_t *xslice, xcache_node_t *node)
 
 void xslice_handle_timeout(xslice_t *xslice)
 {
-	dlist_node_t *iter = xslice->xcache_lru_list;
-	xcache_node_t *node;
+	dlist_node_t *iter;
+	xcache_meta_t *node;
 
-	for(iter = xslice->xcache_lru_list; dlist_data(iter);
+	for(iter = xslice->expiry_list; dlist_data(iter);
 		iter = dlist_next(iter)) {
-		node = (xcache_node_t *)dlist_data(iter);
+		node = (xcache_meta_t *)dlist_data(iter);
 		if((ticks - node->ticks) < (node->ttl))
 			continue;
 
 		/* Timed out node */
 		xslice_send_timeout(xslice, node);
-		ht_remove(xslice->xcache_content_ht, node);
-		dlist_remove_node(&xslice->xcache_lru_list, &iter, NULL);
+
+		/* TODO: Expiry list must be sorted by the expected expiry times */
+		ht_remove(xslice->meta_ht, node);
+		dlist_remove_node(&xslice->expiry_list, &iter, NULL);
 	}
 }
 
@@ -177,30 +163,18 @@ xslice_t *new_xslice(xcache_req_t *req)
 
 	xslice = xcache_alloc(sizeof(xslice_t));
 
-	dlist_init(&xslice->xcache_lru_list);
-	xslice->xcache_content_ht =
+	dlist_init(&xslice->expiry_list);
+	xslice->meta_ht =
 		ht_create(BUCKETS, xslice_hash, xslice_cmp, xslice_cleanup);
 
 	xslice->hid = req->hid;
 	xslice->max_size = DEFAULT_XCACHE_SIZ;
 	xslice->cur_size = 0;
 
-	if(!xslice->xcache_content_ht) {
+	if(!xslice->meta_ht) {
 		xcache_free(xslice);
 		return NULL;
 	}
 
 	return xslice;
-}
-
-#define P1 1000
-#define P2 999
-void __attribute__((constructor(P1))) _INIT (void)
-{
-	printf("Inside %s\n", __func__);
-}
-
-void __attribute__((constructor(P2))) _INIT1 (void)
-{
-	printf("Inside %s\n", __func__);
 }

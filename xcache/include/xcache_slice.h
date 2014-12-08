@@ -21,10 +21,11 @@
 /** xslice layer APIs */
 
 /* Store @data as per @req in cache slice @xslice */
-xcache_node_t *xslice_store(xslice_t *xslice, xcache_req_t *req, uint8_t *data);
+xcache_meta_t *xslice_store(xslice_t *xslice, xcache_req_t *req, uint8_t *data);
 
-/* Search for xcache_node_t in @xslice as per @req (req contains CID) */
-xcache_node_t *xslice_search(xslice_t *xslice, xcache_req_t *req);
+/* Search for xcache_meta_t in @xslice as per @req (req contains CID) */
+uint8_t *
+xslice_search(xcache_meta_t **xcache_node, xslice_t *xslice, xcache_req_t *req);
 
 /* Create a new cache slice as per @req. (req contains HID) */
 xslice_t *new_xslice(xcache_req_t *req);
