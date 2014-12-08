@@ -9,7 +9,9 @@
 #include "xcache_helpers.h"
 #include "xcache.h"
 #include "xcache_controller.h"
+#include "xcache_main.h"
 #include "xia_cache_req.h"
+#include <xcache_plugins.h>
 
 /* Global time counter: incremented every second */
 uint32_t ticks;
@@ -115,6 +117,7 @@ static void xcache_inboud_udp(void)
 static void xcache_handle_timeout(void)
 {
 	xctrl_handle_timeout();
+	xcache_plugins_tick(ticks);
 }
 
 static void xcache_set_timeout(struct timeval *t)

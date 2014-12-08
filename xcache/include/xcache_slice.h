@@ -18,28 +18,6 @@
  */
 #define DEFAULT_XCACHE_SIZ MB(1)
 
-/** xslice_t: Identfies one cache slice **/
-typedef struct {
-	struct click_xia_xid hid;	/* Host identifier */
-	uint32_t cur_size,	/* Current size in bytes of cache */
-		max_size;		/*
-						 * Maximum allowed size, after which
-						 * policy should be applied
-						 */
-	/*
-	 * xcache_lru_list:
-	 * LRU sorted list of data blocks.
-	 * key: CID, value: xcache_node_t (please see @xcache.h)
-	 */
-	dlist_node_t *xcache_lru_list;
-	/*
-	 * xcache_content_ht:
-	 * Hash table of all the content objects
-	 * Key: CID, value: xcache_node_t
-	 */
-	ht_t *xcache_content_ht;
-} xslice_t;
-
 /** xslice layer APIs */
 
 /* Store @data as per @req in cache slice @xslice */

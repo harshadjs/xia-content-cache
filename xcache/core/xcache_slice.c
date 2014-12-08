@@ -4,6 +4,7 @@
 #include <xcache.h>
 #include <xcache_helpers.h>
 #include <xcache_slice.h>
+#include "xcache_main.h"
 
 #define BUCKETS 23
 static int xslice_hash(void *key)
@@ -190,4 +191,16 @@ xslice_t *new_xslice(xcache_req_t *req)
 	}
 
 	return xslice;
+}
+
+#define P1 1000
+#define P2 999
+void __attribute__((constructor(P1))) _INIT (void)
+{
+	printf("Inside %s\n", __func__);
+}
+
+void __attribute__((constructor(P2))) _INIT1 (void)
+{
+	printf("Inside %s\n", __func__);
 }
