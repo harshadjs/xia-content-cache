@@ -57,13 +57,6 @@ typedef struct {
 
 } xslice_t;
 
-/* Xcache plugin initialization macro */
-#ifdef XCACHE_PLUGIN_PRIO
-#define PRIO XCACHE_PLUGIN_PRIO
-#define _xcache_plugin_init \
-	__attribute__((constructor((XCACHE_PLUGIN_PRIO) + 100))) _XCACHE_PLUGIN_INIT
-#endif /* XCACHE_PLUGIN_PRIO */
-
 struct xcache_plugin {
 	/**
 	 * __xcache_store:
@@ -119,5 +112,33 @@ struct xcache_plugin {
 int xcache_register_plugin(struct xcache_plugin *plugin);
 
 void *xcache_alloc(size_t size);
+void xcache_free(void *);
+
+/**
+ * Xcache Plugin Macros:
+ */
+#ifdef XCACHE_PLUGIN_PRIO
+#define PRIO XCACHE_PLUGIN_PRIO
+/* Initializtion macro */
+#define _xcache_plugin_init \
+	__attribute__((constructor((XCACHE_PLUGIN_PRIO) + 100))) _XCACHE_PLUGIN_INIT
+
+#include <_plugins.autogen.h>
+
+typedef struct {
+	uint16_t bm[(XCACHE_N_PLUGINS + 1) / 16];
+} xplugin_bm_t;
+
+#define __BM_INDEX(__plugin) ((__plugin) % 16)
+#define __BM_OFF(__plugin) ((__plugin) % 16)
+
+#define BM_SET(__xplugin_bm, __plugin) \
+	(((__xplugin_bm).bm[__BM_INDEX(__plugin)]) |= (1 << (__BM_OFF(__plugin))))
+#define BM_CLR(__xplugin_bm, __plugin)
+	(((__xplugin_bm).bm[__BM_INDEX(__plugin)]) &= ~(1 << (__BM_OFF(__plugin))))
+#define BM_GET(__xplugin_bm, __plugin) \
+	(((__xplugin_bm).bm[__BM_INDEX(__plugin)]) & (1 << (__BM_OFF(__plugin))))
+
+#endif /* XCACHE_PLUGIN_PRIO */
 
 #endif

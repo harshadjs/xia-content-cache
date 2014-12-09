@@ -20,6 +20,7 @@ int mem_ht_store(xslice_t *xslice, xcache_meta_t *meta, uint8_t *data)
 {
 	memht_node_t *n = new_memht_node();
 
+	printf("%s\n", __func__);
 	n->meta = meta;
 	n->xslice = xslice;
 	n->data = data;
@@ -32,6 +33,7 @@ uint8_t *mem_ht_search(xslice_t *xslice, xcache_meta_t *meta)
 {
 	memht_node_t *n, key;
 
+	printf("%s\n", __func__);
 	key.meta = meta;
 	key.xslice = xslice;
 
