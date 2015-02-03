@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <xcache_slice.h>
 #include <xcache_plugins.h>
 #include <xcache.h>
 
@@ -61,3 +62,20 @@ void xcache_plugins_tick(uint64_t ticks)
 	}
 }
 
+void __xcache_evict(int id, xslice_t *xslice, xcache_meta_t *meta)
+{
+	dlist_node_t *iter;
+	struct xcache_plugin *plugin;
+
+	if(!xslice || !meta)
+		return;
+
+	meta->ref_count--;
+	if(meta->ref_count == 0) {
+		xslice_remove_meta(xslice, meta, NULL);
+	} else {
+		foreach_plugin {
+			plugin->__xcache_notify_evict(id, xslice, meta);
+		}
+	}
+}

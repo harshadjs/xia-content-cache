@@ -68,7 +68,7 @@ static xcache_meta_t *new_xcache_node(xcache_req_t *req)
 	xcache_node->full = 0;
 	/* TODO XXX: TTL = 50? */
 	xcache_node->ttl = 50;
-	xcache_node->ticks = ticks;
+	xcache_node->cticks = xcache_node->aticks = ticks;
 
 	return xcache_node;
 }
@@ -137,6 +137,27 @@ void xslice_send_timeout(xslice_t *xslice, xcache_meta_t *node)
 	xcache_raw_send((uint8_t *)&req, sizeof(req));
 }
 
+static int xmeta_cmp(void *val1, void *val2)
+{
+	xcache_meta_t *m1 = (xcache_meta_t *)val1, *m2 = (xcache_meta_t *)val2;
+
+	return memcmp(&m1->cid, &m2->cid, sizeof(struct click_xia_xid));
+}
+
+void
+xslice_remove_meta(xslice_t *xslice, xcache_meta_t *meta, dlist_node_t *iter)
+{
+	xslice_send_timeout(xslice, meta);
+
+	ht_remove(xslice->meta_ht, meta);
+
+	/* TODO: Expiry list must be sorted by the expected expiry times */
+	if(iter)
+		dlist_remove_node(&xslice->expiry_list, &iter, NULL);
+	else
+		dlist_find_n_remove_node(&xslice->expiry_list, meta, xmeta_cmp, NULL);
+}
+
 void xslice_handle_timeout(xslice_t *xslice)
 {
 	dlist_node_t *iter;
@@ -145,15 +166,9 @@ void xslice_handle_timeout(xslice_t *xslice)
 	for(iter = xslice->expiry_list; dlist_data(iter);
 		iter = dlist_next(iter)) {
 		node = (xcache_meta_t *)dlist_data(iter);
-		if((ticks - node->ticks) < (node->ttl))
+		if((ticks - node->cticks) < (node->ttl))
 			continue;
-
-		/* Timed out node */
-		xslice_send_timeout(xslice, node);
-
-		/* TODO: Expiry list must be sorted by the expected expiry times */
-		ht_remove(xslice->meta_ht, node);
-		dlist_remove_node(&xslice->expiry_list, &iter, NULL);
+		xslice_remove_meta(xslice, node, iter);
 	}
 }
 

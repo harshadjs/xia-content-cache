@@ -20,8 +20,13 @@ click. Source code has been organized into 3 layered structure:
   (xcache_slices.c)
   All the per client policies/timeouts are handled here.
 
-Folder tests contain some basic test programs that can be used to
-verify the functionality of xcache.
+- **tests**
+  Folder tests contain some basic test programs that can be used to
+  verify the functionality of xcache.
+
+- **plugins**
+  Xcache can be extended by adding plugins to it. This folder contains
+  plugins that can added to xcache.
 
 TODOs
 -----

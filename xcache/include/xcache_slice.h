@@ -38,4 +38,6 @@ void xslice_free(xslice_t *xslice);
  */
 void xslice_handle_timeout(xslice_t *xslice);
 
+void xslice_remove_meta(xslice_t *xslice, xcache_meta_t *meta, dlist_node_t *iter);
+
 #endif
