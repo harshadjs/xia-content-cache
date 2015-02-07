@@ -15,33 +15,15 @@
 #define _xcache_plugin_init \
 	__attribute__((constructor((XCACHE_PLUGIN_PRIO) + 100))) _XCACHE_PLUGIN_INIT
 
-#define SET_REF(__xcache_meta, __plugin_obj)				\
-	(__xcache_meta)->__xcache_plugin_obj[XCACHE_PLUGIN_PRIO]	\
+#define SET_PRIV(__xcache_meta, __plugin_obj)				\
+	(__xcache_meta)->priv								\
 				   = (void *)(__plugin_obj)
 
-#define GET_REF(__xcache_meta)									\
-	(__xcache_meta)->__xcache_plugin_obj[XCACHE_PLUGIN_PRIO]
-
-#define xcache_evict(__xslice, __xmeta)						\
-	__xcache_evict(XCACHE_PLUGIN_PRIO, __xslice, __xmeta)
+#define GET_PRIV(__xcache_meta)	((__xcache_meta)->priv)
 
 #endif /* XCACHE_PLUGIN_PRIO */
 
 #include <_plugins.autogen.h>
-
-typedef struct {
-	uint16_t bm[(XCACHE_N_PLUGINS + 1) / 16];
-} xplugin_bm_t;
-
-#define __BM_INDEX(__plugin) ((__plugin) % 16)
-#define __BM_OFF(__plugin) ((__plugin) % 16)
-
-#define BM_SET(__xplugin_bm, __plugin) \
-	(((__xplugin_bm).bm[__BM_INDEX(__plugin)]) |= (1 << (__BM_OFF(__plugin))))
-#define BM_CLR(__xplugin_bm, __plugin) \
-	(((__xplugin_bm).bm[__BM_INDEX(__plugin)]) &= ~(1 << (__BM_OFF(__plugin))))
-#define BM_GET(__xplugin_bm, __plugin) \
-	(((__xplugin_bm).bm[__BM_INDEX(__plugin)]) & (1 << (__BM_OFF(__plugin))))
 
 typedef enum {
 	RET_CACHED,
@@ -51,6 +33,8 @@ typedef enum {
 	RET_FAIL,
 } xret_t;
 
+struct xcache_plugin;
+
 /* Content object */
 typedef struct {
 	/* Content ID */
@@ -58,9 +42,6 @@ typedef struct {
 
 	/* Length of the data object */
 	int len;
-
-	/* A boolean, set if the entire object is present */
-	int full;
 
 	/* Time at which this object was created */
 	uint32_t cticks;
@@ -74,43 +55,30 @@ typedef struct {
 	/* Number of plugins holding this data */
 	int ref_count;
 
+	/* Plugin that stores this content */
+	struct xcache_plugin *plugin;
+
 	/* xcache plugin objects */
-	void *__xcache_plugin_obj[XCACHE_N_PLUGINS];
+	void *priv;
 } xcache_meta_t;
 
-/** xslice_t: Identfies one cache slice **/
-typedef struct {
-	/* Host identifier */
-	struct click_xia_xid hid;
+#define UNLIMITED64 (~((uint64_t)(0x0)))
+#define UNLIMITED32 (~((uint32_t)(0x0)))
 
-	/* Current size in bytes of cache */
-	uint32_t cur_size;
+#define UNLIMITED_SIZE UNLIMITED64
+#define UNLIMITED_ITEMS UNLIMITED32
+#define UNLIMITED_BANDWIDTH UNLIMITED32
 
-	/*
-	 * Maximum allowed size, after which
-	 * policy should be applied
-	 */
-	uint32_t max_size;
-
-	/*
-	 * xcache_timeout_list:
-	 * LRU sorted list of data blocks.
-	 * key: CID, value: xcache_meta_t (please see @xcache.h)
-	 */
-	dlist_node_t *expiry_list;
-
-	/*
-	 * xcache_content_ht:
-	 * Hash table of all the content objects
-	 * Key: CID, value: xcache_meta_t
-	 */
-	ht_t *meta_ht;
-
-} xslice_t;
+struct xcache_plugin_conf {
+	uint64_t max_size;		/* in bytes */
+	uint32_t max_items; 	/* */
+	uint32_t bandwidth; 	/* in bps */
+};
 
 struct xcache_plugin {
 	char *name;
 
+	struct xcache_plugin_conf conf;
 	/**
 	 * __xcache_store:
 	 * New content object arrived.
@@ -123,10 +91,10 @@ struct xcache_plugin {
 	 * Note: The function's return value is used by the xcache-core
 	 * to keep object references.
 	 */
-	xret_t (*__xcache_store)(xslice_t *, xcache_meta_t *, uint8_t *);
+	xret_t (*store)(xcache_meta_t *, uint8_t *);
 
 	/**
-	 * __xcache_search:
+	 * __xcache_get:
 	 * Search function
 	 * @xslice_t: Corresponding slice
 	 * @xcache_req_t: Received request
@@ -137,43 +105,9 @@ struct xcache_plugin {
 	 * (n-1) plugins before it returned NULL. That's why the order of plugins
 	 * matters. The order of plugins is defined in plugins/order.conf.
 	 */
-	uint8_t *(*__xcache_search)(xslice_t *, xcache_meta_t *);
+	uint8_t *(*get)(xcache_meta_t *, uint8_t *);
 
-	/**
-	 * __xcache_timer:
-	 * Timer function for this plugin. Called after every TICK_INTERVAL.
-	 * @args ticks: Current number of ticks
-	 * @returns cache_node, if this plugin decides to evict it.
-	 */
-	xret_t (*__xcache_timer)(uint64_t ticks);
-
-	/**
-	 * __xcache_notify_evict:
-	 * evict xcache_node.
-	 * @int: The node who has evicted this object
-	 * @xslice_t: Corresponding slice
-	 * @xcache_meta_t: Object to be evicted
-	 */
-	xret_t
-	(*__xcache_notify_evict)(int, xslice_t *, xcache_meta_t *);
-
-	/**
-	 * __xcache_evicted:
-	 * Some plugin evicted xcache_node.
-	 * @xslice_t: Corresponding slice
-	 * @xcache_meta_t: Object to be evicted
-	 */
-	xret_t
-	(*__xcache_force_evict)(xslice_t *, xcache_meta_t *);
-
-	/**
-	 * __xcache_exists:
-	 * Some plugin evicted xcache_node.
-	 * @xslice_t: Corresponding slice
-	 * @xcache_meta_t: Object to be evicted
-	 */
-	xret_t
-	(*__xcache_exists)(xslice_t *, xcache_meta_t *);
+	xret_t (*evict)(xcache_meta_t *);
 };
 
 /**
@@ -184,6 +118,5 @@ int xcache_register_plugin(struct xcache_plugin *);
 
 void *xcache_alloc(size_t size);
 void xcache_free(void *);
-
 
 #endif

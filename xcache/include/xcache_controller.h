@@ -1,7 +1,6 @@
 #ifndef __XCACHE_CONTROLLER_H__
 #define __XCACHE_CONTROLLER_H__
 #include "xcache.h"
-#include "xcache_slice.h"
 
 /** Xcache controller APIs
  ** ----------------------
@@ -10,23 +9,24 @@
  ** this layer will go away.
  **/
 
-/* Get xcache slice for request @req */
-xslice_t *xctrl_search(xcache_req_t *req);
+/* DONE Store data in cache slice corresponding to  @req */
+xcache_meta_t *xctrl_store(xcache_req_t *req, uint8_t *data);
 
-/* Store data in cache slice corresponding to  @req */
-xslice_t *xctrl_store(xcache_req_t *req, uint8_t *data);
+/* DONE Get meta from request */
+xcache_meta_t *xctrl_get_meta(xcache_req_t *req);
 
-/* Add @xslice to the slice hash table */
-int xctrl_add_xslice(xslice_t *xslice);
+/* DONE Get meta from request */
+uint8_t *xctrl_get_data(xcache_meta_t *meta, uint8_t *data);
 
-/* Init function for this layer: Initializes hash table */
+/* DONE Timer routine: Must be called once every timeout*/
+void xctrl_timer(void);
+
+/* DONE Init function for this layer: Initializes hash table */
 int xctrl_init(void);
 
-/*
- * Timeout function for this layer: This should be called on every
- * timeout (currently it is 1 second). It will subsequently invoke
- * appropriate xslice_* functions
- */
-void xctrl_handle_timeout(void);
+/* DONE Remove */
+void xctrl_remove(xcache_meta_t *meta);
 
+/* DONE Send timeout (Change name) */
+void xctrl_send_timeout(xcache_meta_t *meta);
 #endif

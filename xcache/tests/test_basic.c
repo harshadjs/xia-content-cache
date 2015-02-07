@@ -109,6 +109,7 @@ void test_1(void)
 
 		create_store_req(&req, cid);
 		req.len = n;
+		printf("n = %d, filesize = %d\n", n, file_size);
 		req.total_len = file_size;
 		req.offset = cur_off;
 
@@ -127,7 +128,7 @@ void test_1(void)
 
 void test_2()
 {
-	int fd = open(output_file, O_RDWR | O_CREAT | O_TRUNC);
+	int fd = open(output_file, O_RDWR | O_CREAT);
 	int recvd = 0, total_len;
 	uint8_t packet[UDP_MAX_PKT], *payload;
 	xcache_req_t *hdr = (xcache_req_t *)packet;

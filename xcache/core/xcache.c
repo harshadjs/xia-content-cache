@@ -11,7 +11,6 @@
 #include "xcache_controller.h"
 #include "xcache_main.h"
 #include "xia_cache_req.h"
-#include <xcache_plugins.h>
 
 /* Global time counter: incremented every second */
 uint32_t ticks;
@@ -28,22 +27,8 @@ int xcache_raw_send(uint8_t *data, int len)
 				  sizeof(struct sockaddr));
 }
 
-static xcache_meta_t *xcache_store(xcache_req_t *req, uint8_t *data)
-{
-	xslice_t *xslice = xctrl_search(req);
-
-	if(!xslice) {
-		/* First request for this client */
-		xslice = new_xslice(req);
-		xctrl_add_xslice(xslice);
-	}
-
-	return xslice_store(xslice, req, data);
-}
-
 static void
-xcache_fragment_and_send(xcache_meta_t *xcache_node,
-						 xslice_t *xslice,
+xcache_fragment_and_send(xcache_meta_t *meta,
 						 uint8_t *data)
 {
 	uint8_t packet[UDP_MAX_PKT], *payload;
@@ -52,52 +37,46 @@ xcache_fragment_and_send(xcache_meta_t *xcache_node,
 
 #define MIN(__a, __b) (((__a) < (__b)) ? (__a) : (__b))
 
+	printf("%s: Meta->len = %d\n", __func__, meta->len);
+
 	payload = packet;
 	payload += sizeof(xcache_req_t);
 	do {
 		response->request = XCACHE_RESPONSE;
-		response->ch.cid = xcache_node->cid;
+		response->ch.cid = meta->cid;
 		response->ch.cid.type = htonl(CLICK_XIA_XID_TYPE_CID);
 
-		response->hid = xslice->hid;
 		response->hid.type = htonl(CLICK_XIA_XID_TYPE_HID);
 
 		response->offset = sent;
-		response->len = MIN(1000, (xcache_node->len - sent));
-		response->total_len = xcache_node->len;
+		response->len = MIN(1000, (meta->len - sent));
+		response->total_len = meta->len;
 
 		memcpy(payload, data + sent, response->len);
 		sendto(s, packet, sizeof(xcache_req_t) + response->len, 0,
 			   (struct sockaddr *)&click_addr, sizeof(struct sockaddr));
 		sent += response->len;
-	} while(sent < xcache_node->len);
+	} while(sent < meta->len);
 }
 
 static void
 xcache_search_and_respond(xcache_req_t *req)
 {
-	xslice_t *xslice = xctrl_search(req);
-	xcache_meta_t *xcache_node;
+	xcache_meta_t *meta;
 	uint8_t *data;
 
-	if(!xslice) {
-		/* First request for this client */
-		xslice = new_xslice(req);
-		xctrl_add_xslice(xslice);
-		/* click knows if we have the object or not */
-		/* TODO XXX: But, we can send a DENY */
-		return;
-	}
-
-	data = xslice_search(&xcache_node, xslice, req);
-	if(!xcache_node || !data /* || !xcache_node->full */)
+	meta = xctrl_get_meta(req);
+	printf("[Meta: %p]\n", meta);
+	data = xcache_alloc(meta->len);
+	xctrl_get_data(meta, data);
+	if(!meta || !data /* || !xcache_node->full */)
 		/* XXX: Again, send a DENY */
 		return;
 
-	xcache_fragment_and_send(xcache_node, xslice, data);
+	xcache_fragment_and_send(meta, data);
 }
 
-static void xcache_inboud_udp(void)
+static void xcache_inbound_udp(void)
 {
 	socklen_t slen = sizeof(click_addr);
 	uint8_t packet[UDP_MAX_PKT], *payload;
@@ -111,16 +90,10 @@ static void xcache_inboud_udp(void)
 
 	xcache_dump_req(req);
 	if(req->request == XCACHE_STORE) {
-		xcache_store(req, payload);
+		xctrl_store(req, payload);
 	} else if(req->request == XCACHE_SEARCH) {
 		xcache_search_and_respond(req);
 	}
-}
-
-static void xcache_handle_timeout(void)
-{
-	xctrl_handle_timeout();
-	xcache_plugins_tick(ticks);
 }
 
 static void xcache_set_timeout(struct timeval *t)
@@ -160,14 +133,14 @@ static int xcache_main_loop(void)
 		n = select(s + 1, &fds, NULL, NULL, &timeout);
 
 		if(FD_ISSET(s, &fds)) {
-			xcache_inboud_udp();
+			xcache_inbound_udp();
 		}
 
 		if((n == 0) && (timeout.tv_sec == 0) && (timeout.tv_usec == 0)) {
 			/* It's a timeout */
 			ticks ++;
 			xcache_set_timeout(&timeout);
-			xcache_handle_timeout();
+			xctrl_timer();
 		}
 
 	}
