@@ -40,6 +40,8 @@ uint8_t *backend_get(xcache_meta_t *meta, uint8_t *dest)
 
 	read(fd, data, meta->len);
 
+	memcpy(dest, data, meta->len);
+	xcache_free(data);
 	close(fd);
 	printf("%s\n", __func__);
 	return data;

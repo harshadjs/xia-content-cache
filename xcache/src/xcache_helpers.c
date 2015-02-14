@@ -19,12 +19,9 @@ void xcache_dump_req(xcache_req_t *req)
 		:((req->request == XCACHE_SEARCH) ? ("SEARCH") : ("OTHER"));
 
 	printf("[%s]: [ ", request);
-	print_cid(&req->hid);
-	printf(" : ");
-	print_cid(&req->ch.cid);
+	print_cid(&req->cid);
 	printf(" ]\n");
-	printf("ttl: %d, request: %d, off: %d, len: %d, tot: %d\n",
-		   req->ch.ttl, req->request, req->offset, req->len, req->total_len);
+	printf("ttl: %d, request: %d, len: %d\n", req->ttl, req->request, req->len);
 }
 
 void dump_buf(char *buf, int len)

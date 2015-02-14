@@ -13,21 +13,11 @@ enum request_t {
 	XCACHE_RESPONSE,
 };
 
-struct content_header {
-	/* CID of the content */
-	struct click_xia_xid cid;
-
-	/* Time to live */
-	uint32_t ttl;
-} __attribute__((packed));
-
 typedef struct {
 	uint8_t request;
-	struct content_header ch;
-	struct click_xia_xid hid;
-	uint32_t offset;
+	struct click_xia_xid cid;
+	uint32_t ttl;
 	uint32_t len;
-	uint32_t total_len;
 } __attribute__((packed)) xcache_req_t;
 
 #define XID_STRUCT_LEN (sizeof(struct click_xia_xid))

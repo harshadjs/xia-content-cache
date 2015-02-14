@@ -17,17 +17,6 @@ CLICK_DECLS
 
 #define EXTERNAL_CACHE
 
-#ifdef EXTERNAL_CACHE
-/*
- * This hash table saves all the XIACache objects. This is used
- * when xcache responds. When xcache responds, click can't know about
- * the corresponding cache object.
- *
- * TODO: Handle malicious cache properly
- */
-static HashTable<XID,XIACache *> XcacheContextTable;
-#endif
-
 XIACache::XIACache()
 {
     cp_xid_type("CID", &_cid_type);
@@ -44,9 +33,6 @@ XIACache::XIACache()
 
 XIACache::~XIACache()
 {
-#ifdef EXTERNAL_CACHE
-	XcacheContextTable[_local_hid] = NULL;
-#endif
     delete _content_module;
 }
 
@@ -99,10 +85,6 @@ XIACache::configure(Vector<String> &conf, ErrorHandler *errh)
        }
        std::cout<<"pkt size: "<<PKTSIZE<<std::endl;
      */
-#ifdef EXTERNAL_CACHE
-	/* Create context / hash_table entry for this cache object */
-	xcache_new_context(this);
-#endif
     return 0;
 }
 
@@ -118,7 +100,7 @@ void XIACache::xcache_handle_response(Packet *p_cache)
 	char *payload;
 	xcache_req_t *req = (xcache_req_t *)(p_cache->data());
     HashTable<XID,Packet*>::iterator it;
-	XID CID(req->ch.cid);
+	XID CID(req->cid);
 
 	if(req->request == XCACHE_TIMEOUT) {
 		/* Content timed out */
@@ -148,22 +130,6 @@ void XIACache::xcache_handle_response(Packet *p_cache)
 
 	payload = ((char *)req + sizeof(xcache_req_t));
 	_content_module->process_request(p, srcHID, CID, payload, req->len);
-}
-
-/**
- * xcache_get_context:
- * Get context(XIACache object) for packet sent by the cache.
- */
-XIACache *XIACache::xcache_get_context(Packet *p_cache)
-{
-	xcache_req_t *req = (xcache_req_t *)(p_cache->data());
-	XIACache *xcache;
-	XID srcHID(req->hid);
-
-	click_chatter("Searching context: %s\n", srcHID.unparse().c_str());
-	xcache = XcacheContextTable[srcHID];
-
-	return xcache;
 }
 #endif
 
@@ -239,30 +205,10 @@ void XIACache::xcache_push(int port, Packet *p)
 
 void XIACache::push(int port, Packet *p)
 {
-    const struct click_xia *hdr;
-	XIACache *xcache = NULL;
-    struct click_xia_xid __dstID;
-    uint32_t dst_xid_type;
-    struct click_xia_xid __srcID;
-    uint32_t src_xid_type;
-
 	click_chatter("===================== PUSH[%d] ======================\n", port);
 	click_chatter("myaddr: %s\b",_local_hid.unparse().c_str());
 
-
-	if(port == 2) {
-		/* Packet came from cache */
-		xcache = xcache_get_context(p);
-	} else {
-		xcache = this;
-	}
-
-	if(!xcache) {
-		click_chatter("Setting context failed. xcache is NULL\n");
-	} else {
-		click_chatter("Context Found\n");
-		xcache->xcache_push(port, p);
-	}
+	this->xcache_push(port, p);
 	click_chatter("==================================\n");
 }
 int
@@ -318,16 +264,6 @@ XIACache::read_handler(Element *e, void *thunk)
 			return "<error>";
     }
 }
-
-#ifdef EXTERNAL_CACHE
-void XIACache::xcache_new_context(XIACache *xcache) {
-	XID xid(xcache->_local_hid.xid());
-
-	click_chatter("Creating new context\n");
-	click_chatter("Searching context: %s\n", xcache->_local_hid.unparse().c_str());
-	XcacheContextTable[xcache->_local_hid] = xcache;
-};
-#endif
 
 void XIACache::add_handlers() {
     add_write_handler("local_addr", write_param, (void *)H_MOVE);

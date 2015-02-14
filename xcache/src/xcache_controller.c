@@ -27,23 +27,22 @@ static void xcache_addto_expiry_list(xcache_meta_t *meta)
 
 static xcache_meta_t *new_xcache_node(xcache_req_t *req)
 {
-	xcache_meta_t *xcache_node;
+	xcache_meta_t *meta;
 
-	xcache_node = (xcache_meta_t *)xcache_alloc(sizeof(xcache_meta_t));
-	xcache_node->len = req->total_len;
-	xcache_node->cid = req->ch.cid;
-	xcache_node->cid.type = CLICK_XIA_XID_TYPE_CID;
-	xcache_node->ttl = req->ch.ttl;
-	xcache_node->cticks = xcache_node->aticks = ticks;
+	meta = (xcache_meta_t *)xcache_alloc(sizeof(xcache_meta_t));
+	meta->len = req->len;
+	meta->cid = req->cid;
+	meta->ttl = req->ttl;
+	meta->cticks = meta->aticks = ticks;
 
-	return xcache_node;
+	return meta;
 }
 
 xcache_meta_t *xctrl_get_meta(xcache_req_t *req)
 {
 	xcache_meta_t key;
 
-	key.cid = req->ch.cid;
+	key.cid = req->cid;
 
 	return ht_search(xctrl.meta_ht, (void *)&key);
 }
@@ -96,8 +95,8 @@ void xctrl_send_timeout(xcache_meta_t *meta)
 	memset(&req, 0, sizeof(req));
 	req.request = XCACHE_TIMEOUT;
 
-	req.ch.cid = meta->cid;
-	req.ch.cid.type = htonl(CLICK_XIA_XID_TYPE_CID);
+	req.cid = meta->cid;
+	req.cid.type = htonl(CLICK_XIA_XID_TYPE_CID);
 
 	xcache_raw_send((uint8_t *)&req, sizeof(req));
 }

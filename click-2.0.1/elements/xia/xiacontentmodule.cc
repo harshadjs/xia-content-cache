@@ -97,36 +97,21 @@ Packet * XIAContentModule::makeChunkPush(CChunk * chunk, Packet *p_in)
 #ifdef EXTERNAL_CACHE
 void XIAContentModule::store_in_external_cache(CChunk *chunk)
 {
-	int bytes_to_send, bytes_sent;
 	xcache_req_t req;
 	WritablePacket *pkt;
 	char buf[MAX_TRANSFER_SIZE];
 
-#define MIN(__a, __b) (((__a) < (__b)) ? (__a) : (__b))
+	req.request = XCACHE_STORE;
+	req.len = chunk->GetSize();
 
-	bytes_sent = 0;
-	do {
-		bytes_to_send = MIN((chunk->GetSize() - bytes_sent),
-							MAX_TRANSFER_SIZE - sizeof(xcache_req_t));
+	req.cid = chunk->id().xid();
+	req.ttl = 86400;
 
-		req.request = XCACHE_STORE;
-		req.len = bytes_to_send;
-		req.offset = bytes_sent;
-		req.total_len = chunk->GetSize();
+	memcpy(buf, &req, sizeof(xcache_req_t));
+	memcpy(buf + sizeof(xcache_req_t), chunk->GetPayload(), req.len);
+	pkt = Packet::make(0, buf, req.len + sizeof(xcache_req_t), 0);
 
-		req.hid = _transport->local_hid().xid();
-		req.ch.cid = chunk->id().xid();
-		req.ch.ttl = 86400;
-
-		memcpy(buf, &req, sizeof(xcache_req_t));
-		memcpy(buf + sizeof(xcache_req_t), chunk->GetPayload() + bytes_sent,
-			   bytes_to_send);
-		pkt = Packet::make(0, buf, bytes_to_send + sizeof(xcache_req_t), 0);
-
-		_transport->checked_output_push(2, pkt);
-
-		bytes_sent += bytes_to_send;
-	} while(bytes_sent < chunk->GetSize());
+	_transport->checked_output_push(2, pkt);
 }
 
 void XIAContentModule::search_external_cache(const XID &CID)
@@ -138,11 +123,8 @@ void XIAContentModule::search_external_cache(const XID &CID)
 	click_chatter("My HID: %s\n", _transport->local_hid().unparse().c_str());
 	req.request = XCACHE_SEARCH;
 	req.len = 0;
-	req.offset = 0;
-	req.total_len = 0;
 
-	req.hid = _transport->local_hid().xid();
-	req.ch.cid = CID.xid();
+	req.cid = CID.xid();
 
 	pkt = Packet::make(0, &req , sizeof(xcache_req_t), 0);
 	_transport->checked_output_push(2, pkt);

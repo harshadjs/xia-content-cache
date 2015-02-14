@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g -I../../click/include/click
 all:
-	$(CC) $(CFLAGS) test_basic.c -o test_basic
+	$(CC) $(CFLAGS) xcache_client.c -o xcache_client
 clean:
-	rm -f test_basic
+	rm -f xcache_client

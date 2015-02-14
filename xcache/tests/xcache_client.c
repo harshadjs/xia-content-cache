@@ -24,42 +24,45 @@ char *input_file, *output_file;
 		printf("===================================\n\n");	\
 	} while(0)
 
-struct click_xia_xid my_hid = {
-	1,
-	{1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
-};
-
 void generate_random_xid(uint8_t *xid)
 {
 	int i;
 
 	for(i = 0; i < CLICK_XIA_XID_ID_LEN; i++)
-		xid[i] = (uint8_t)random();
+		xid[i] = (uint8_t)rand();
+}
+
+uint8_t *str2cid(char *xid_str)
+{
+	int i, j;
+	static uint8_t cid[CLICK_XIA_XID_ID_LEN];
+
+	memset(cid, 0, CLICK_XIA_XID_ID_LEN);
+	j = CLICK_XIA_XID_ID_LEN - 1;
+
+	for(i = strlen(xid_str) - 1; i >= 0; i--) {
+		cid[j--] = xid_str[i] - '0';
+	}
+
+	return cid;
 }
 
 void create_search_req(xcache_req_t *req, uint8_t *cid)
 {
 	req->request = XCACHE_SEARCH;
-	req->ch.cid.type = 0;
-	memcpy(req->ch.cid.id, cid, CLICK_XIA_XID_ID_LEN);
-	req->ch.ttl = 0;
-	req->hid = my_hid;
-	req->offset = 0;
+	req->cid.type = 0;
+	memcpy(req->cid.id, cid, CLICK_XIA_XID_ID_LEN);
+	req->ttl = 0;
 	req->len = 0;
-	req->total_len = 0;
 }
 
 void create_store_req(xcache_req_t *req, uint8_t *cid)
 {
 	req->request = XCACHE_STORE;
-	req->ch.cid.type = 0;
-	memcpy(req->ch.cid.id, cid, CLICK_XIA_XID_ID_LEN);
-	req->ch.ttl = 100;
-	req->hid = my_hid;
-	req->offset = 0;
+	req->cid.type = 0;
+	memcpy(req->cid.id, cid, CLICK_XIA_XID_ID_LEN);
+	req->ttl = 100;
 	req->len = 0;
-	req->total_len = 0;
 }
 
 int create_socket(void)
@@ -82,6 +85,7 @@ void send_data(uint8_t *data, int len) {
 	printf("\tRequested: %d, Sent %d bytes\n", len, n);
 }
 
+#if 0
 void test_1(void)
 {
 	uint8_t packet[UDP_MAX_PKT], buf[UDP_MAX_PKT], *payload;
@@ -104,21 +108,15 @@ void test_1(void)
 
 	payload = packet;
 	payload += sizeof(xcache_req_t);
-	do {
-		n = read(fd, buf, 1000);
+	n = read(fd, buf, file_size);
 
-		create_store_req(&req, cid);
-		req.len = n;
-		printf("n = %d, filesize = %d\n", n, file_size);
-		req.total_len = file_size;
-		req.offset = cur_off;
+	create_store_req(&req, cid);
+	req.len = n;
+	printf("n = %d, filesize = %d\n", n, file_size);
 
-		memcpy(packet, &req, sizeof(xcache_req_t));
-		memcpy(payload, buf, n);
-		send_data(packet, sizeof(xcache_req_t) + n);
-
-		cur_off += n;
-	} while(n == 1000);
+	memcpy(packet, &req, sizeof(xcache_req_t));
+	memcpy(payload, buf, n);
+	send_data(packet, sizeof(xcache_req_t) + n);
 
 	create_search_req(&req, cid);
 	send_data((uint8_t *)&req, sizeof(xcache_req_t));
@@ -142,34 +140,61 @@ void test_2()
 		printf("%s: Invalid output file: %s\n", __func__, output_file);
 		return;
 	}
-	do {
-		recvfrom(sock, packet, UDP_MAX_PKT, 0,
-				 (struct sockaddr *)&dest_addr, &socklen);
-		total_len = hdr->total_len;
-		recvd += hdr->len;
-		write(fd, payload, hdr->len);
-		printf("recvd = %d\n", recvd);
-	} while(recvd < total_len);
+	recvfrom(sock, packet, UDP_MAX_PKT, 0,
+			 (struct sockaddr *)&dest_addr, &socklen);
+	recvd = hdr->len;
+	write(fd, payload, hdr->len);
+	printf("recvd = %d\n", recvd);
 
 	close(fd);
 	TEST_END_LOG;
 }
+#endif
+
+void dump_received(uint8_t *data)
+{
+	xcache_req_t *req = (xcache_req_t *)data;
+	int i;
+
+	for(i = 0; i < req->len; i++) {
+		printf("%c", data[sizeof(xcache_req_t) + i]);
+	}
+}
 
 int main(int argc, char *argv[])
 {
-	if(argc < 3) {
-		printf("Usage: %s <input_file> <output_file>\n", argv[0]);
-		return 1;
-	}
+	uint8_t packet[UDP_MAX_PKT], *payload;
+	xcache_req_t req;
+	xcache_req_t *hdr = (xcache_req_t *)packet;
+	int fd;
+	int file_size;
+	socklen_t socklen;
 
-	input_file = argv[1];
-	output_file = argv[2];
+	payload = packet;
+	payload += sizeof(xcache_req_t);
+
 	sock = create_socket();
 	dest_addr.sin_family = AF_INET;
 	inet_aton("127.0.0.1", (struct in_addr *)&dest_addr.sin_addr.s_addr);
 	dest_addr.sin_port = htons(1444);
 
-	test_1();
-	test_2();
+	if(strcmp(argv[1], "search") == 0) {
+		create_search_req(&req, str2cid(argv[2]));
+		send_data((uint8_t *)&req, sizeof(req));
+		recvfrom(sock, packet, UDP_MAX_PKT, 0,
+				 (struct sockaddr *)&dest_addr, &socklen);
+		dump_received(packet);
+	} else if(strcmp(argv[1], "store") == 0) {
+		/* xcache_client store <cid> <filename> <ttl> */
+		create_store_req(hdr, str2cid(argv[2]));
+		fd = open(argv[3], O_RDWR);
+		file_size = lseek(fd, 0, SEEK_END);
+		lseek(fd, 0, SEEK_SET);
+
+		hdr->len = read(fd, packet + sizeof(xcache_req_t), file_size);
+		hdr->ttl = strtol(argv[4], NULL, 10);
+		send_data(packet, sizeof(xcache_req_t) + hdr->len);
+	}
+
 	return 0;
 }

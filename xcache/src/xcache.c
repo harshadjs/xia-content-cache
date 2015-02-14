@@ -33,7 +33,6 @@ xcache_fragment_and_send(xcache_meta_t *meta,
 {
 	uint8_t packet[UDP_MAX_PKT], *payload;
 	xcache_req_t *response = (xcache_req_t *)packet;
-	int sent = 0;
 
 #define MIN(__a, __b) (((__a) < (__b)) ? (__a) : (__b))
 
@@ -41,22 +40,15 @@ xcache_fragment_and_send(xcache_meta_t *meta,
 
 	payload = packet;
 	payload += sizeof(xcache_req_t);
-	do {
-		response->request = XCACHE_RESPONSE;
-		response->ch.cid = meta->cid;
-		response->ch.cid.type = htonl(CLICK_XIA_XID_TYPE_CID);
+	response->request = XCACHE_RESPONSE;
+	response->cid = meta->cid;
+	response->cid.type = htonl(CLICK_XIA_XID_TYPE_CID);
 
-		response->hid.type = htonl(CLICK_XIA_XID_TYPE_HID);
+	response->len = meta->len;
 
-		response->offset = sent;
-		response->len = MIN(1000, (meta->len - sent));
-		response->total_len = meta->len;
-
-		memcpy(payload, data + sent, response->len);
-		sendto(s, packet, sizeof(xcache_req_t) + response->len, 0,
-			   (struct sockaddr *)&click_addr, sizeof(struct sockaddr));
-		sent += response->len;
-	} while(sent < meta->len);
+	memcpy(payload, data, response->len);
+	sendto(s, packet, sizeof(xcache_req_t) + response->len, 0,
+		   (struct sockaddr *)&click_addr, sizeof(struct sockaddr));
 }
 
 static void
