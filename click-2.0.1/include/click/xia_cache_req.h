@@ -14,9 +14,16 @@ enum request_t {
 };
 
 typedef struct {
+	uint32_t context_id,
+		ttl,
+		cache_size,
+		cache_policy;
+} __attribute__((packed)) xcache_context_t;
+
+typedef struct {
 	uint8_t request;
 	struct click_xia_xid cid;
-	uint32_t ttl;
+	xcache_context_t context;
 	uint32_t len;
 } __attribute__((packed)) xcache_req_t;
 

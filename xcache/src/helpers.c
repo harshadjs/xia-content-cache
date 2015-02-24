@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <xia_cache_req.h>
-#include <xcache_helpers.h>
+#include "helpers.h"
 
 void print_cid(struct click_xia_xid *cid)
 {
@@ -21,7 +21,12 @@ void xcache_dump_req(xcache_req_t *req)
 	printf("[%s]: [ ", request);
 	print_cid(&req->cid);
 	printf(" ]\n");
-	printf("ttl: %d, request: %d, len: %d\n", req->ttl, req->request, req->len);
+	printf("request: %d, len: %d\n", req->request, req->len);
+	printf("Context: [id = %d, ttl = %d, size = %d, policy = %d]\n",
+		   req->context.context_id,
+		   req->context.ttl,
+		   req->context.cache_size,
+		   req->context.cache_policy);
 }
 
 void dump_buf(char *buf, int len)
@@ -35,7 +40,7 @@ void dump_buf(char *buf, int len)
 	printf("\n");
 }
 
-void *xcache_alloc(size_t size)
+void *xalloc(size_t size)
 {
 #ifdef __KERNEL__
 	return kmalloc(GFP_KERNEL, size);
@@ -46,13 +51,13 @@ void *xcache_alloc(size_t size)
 
 void *xcache_zalloc(size_t size)
 {
-	void *mem = xcache_alloc(size);
+	void *mem = xalloc(size);
 
 	memset(mem, 0, size);
 	return mem;
 }
 
-void xcache_free(void *mem)
+void xfree(void *mem)
 {
 #ifdef __KERNEL__
 	kfree(mem);

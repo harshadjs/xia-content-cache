@@ -105,13 +105,16 @@ int XpushChunkto(const ChunkContext *ctx, const char *buf, size_t len, int flags
 	// FIXME: validate addr
 	Graph g((sockaddr_x*)addr);
 	std::string s = g.dag_string();
-
+	
 //  	printf("Destination DAG in API Call: %s \n", s.c_str());
 
 	x_pushchunkto->set_ddag(s.c_str());
 	x_pushchunkto->set_payload((const char*)buf, len);
-
+	
+	x_pushchunkto->set_contextid(ctx->contextID);
 	x_pushchunkto->set_ttl(ctx->ttl);
+	x_pushchunkto->set_cachesize(ctx->cacheSize);
+	x_pushchunkto->set_cachepolicy(ctx->cachePolicy);
 	x_pushchunkto->set_cid(info->cid);
 	x_pushchunkto->set_length(sizeof(info->cid));
 	printf("PushChunk Message CID: %s\n", x_pushchunkto->cid().c_str());

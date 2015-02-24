@@ -6,7 +6,7 @@
 void print_cid(struct click_xia_xid *cid);
 void dump_buf(char *buf, int len);
 void dump_request(xcache_req_t *req);
-void *xcache_alloc(size_t size);
+void *xalloc(size_t size);
 void *xcache_zalloc(size_t size);
 void xcache_free(void *mem);
 void xcache_dump_req(xcache_req_t *req);

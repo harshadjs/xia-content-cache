@@ -2,6 +2,13 @@
 #define __XCACHE_CONTROLLER_H__
 #include "xcache.h"
 
+typedef struct {
+	ht_t *meta_ht;
+	ht_t *slice_ht;
+	uint64_t max_size;
+	uint64_t cur_size;
+} xctrl_t;
+
 /** Xcache controller APIs
  ** ----------------------
  ** Following are the APIs provided by this layer.
@@ -12,11 +19,7 @@
 /* DONE Store data in cache slice corresponding to  @req */
 xcache_meta_t *xctrl_store(xcache_req_t *req, uint8_t *data);
 
-/* DONE Get meta from request */
-xcache_meta_t *xctrl_get_meta(xcache_req_t *req);
-
-/* DONE Get meta from request */
-uint8_t *xctrl_get_data(xcache_meta_t *meta, uint8_t *data);
+xcache_meta_t *xctrl_search(uint8_t **data, xcache_req_t *req);
 
 /* DONE Timer routine: Must be called once every timeout*/
 void xctrl_timer(void);

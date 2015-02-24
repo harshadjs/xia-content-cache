@@ -52,7 +52,7 @@ void create_search_req(xcache_req_t *req, uint8_t *cid)
 	req->request = XCACHE_SEARCH;
 	req->cid.type = 0;
 	memcpy(req->cid.id, cid, CLICK_XIA_XID_ID_LEN);
-	req->ttl = 0;
+	req->context.ttl = 0;
 	req->len = 0;
 }
 
@@ -61,7 +61,7 @@ void create_store_req(xcache_req_t *req, uint8_t *cid)
 	req->request = XCACHE_STORE;
 	req->cid.type = 0;
 	memcpy(req->cid.id, cid, CLICK_XIA_XID_ID_LEN);
-	req->ttl = 100;
+	req->context.ttl = 100;
 	req->len = 0;
 }
 
@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 		lseek(fd, 0, SEEK_SET);
 
 		hdr->len = read(fd, packet + sizeof(xcache_req_t), file_size);
-		hdr->ttl = strtol(argv[4], NULL, 10);
+		hdr->context.ttl = strtol(argv[4], NULL, 10);
 		send_data(packet, sizeof(xcache_req_t) + hdr->len);
 	}
 

@@ -16,12 +16,12 @@ static uint64_t max_cache_size;
 xret_t backend_store(xcache_meta_t *meta, uint8_t *data)
 {
 	int fd;
-	backend_node_t *node = xcache_alloc(sizeof(backend_node_t));
+	backend_node_t *node = xalloc(sizeof(backend_node_t));
 
 	printf("%s\n", __func__);
 	backend_index++;
 	sprintf(node->filename, "/tmp/xcache_backend/%d", backend_index);
-	SET_PRIV(meta, node);
+	SET_STORE_PRIV(meta, node);
 
 	fd = open(node->filename, O_RDWR | O_CREAT, 777);
 	write(fd, data, meta->len);
@@ -32,28 +32,18 @@ xret_t backend_store(xcache_meta_t *meta, uint8_t *data)
 	return RET_CACHED;
 }
 
-uint8_t *backend_get(xcache_meta_t *meta, uint8_t *dest)
+xret_t backend_get(xcache_meta_t *meta, uint8_t *dest)
 {
-	backend_node_t *node = (backend_node_t *)GET_PRIV(meta);
-	uint8_t *data = xcache_alloc(meta->len);
-	int fd = open(node->filename, O_RDONLY);
-
-	read(fd, data, meta->len);
-
-	memcpy(dest, data, meta->len);
-	xcache_free(data);
-	close(fd);
-	printf("%s\n", __func__);
-	return data;
+	return RET_FAIL;
 }
 
 xret_t backend_evict(xcache_meta_t *meta)
 {
-	free(GET_PRIV(meta));
+	free(GET_STORE_PRIV(meta));
 	return RET_OK;
 }
 
-static struct xcache_plugin ht = {
+static struct xcache_store ht = {
 	.name = "backend",
 	.store = backend_store,
 	.get = backend_get,
@@ -63,11 +53,11 @@ static struct xcache_plugin ht = {
 	.conf.max_size = UNLIMITED_BANDWIDTH,
 };
 
-void _xcache_plugin_init(void)
+void _xcache_store_init(void)
 {
 	printf("Inside backend\n");
 	max_cache_size = 1024 * 1; /* 1024 bytes */
 
-	/* Plugin Init */
-	xcache_register_plugin(&ht);
+	/* Store Init */
+	xcache_register_store(&ht);
 }

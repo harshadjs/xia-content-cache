@@ -7,17 +7,20 @@ CLICK_DECLS
 
 #define CACHE_DEBUG 1
 
+
+static void ch_to_context(xcache_context_t *context, ContentHeader ch)
+{
+	context->context_id = ch.contextID();
+	context->ttl = ch.ttl();
+	context->cache_size = ch.cacheSize();
+	context->cache_policy = ch.cachePolicy();
+}
+
 unsigned int XIAContentModule::PKTSIZE = PACKETSIZE;
 XIAContentModule::XIAContentModule(XIATransport *transport)
 {
     _transport = transport;
     _timer=0;
-#ifdef EXTERNAL_CACHE
-	char buf[256];
-	sprintf(buf, "/tmp/xia-%s",
-			_transport->local_hid().unparse().c_str());
-	loggerfp = fopen(buf, "w+");
-#endif
 }
 
 XIAContentModule::~XIAContentModule()
@@ -95,7 +98,8 @@ Packet * XIAContentModule::makeChunkPush(CChunk * chunk, Packet *p_in)
 }
 
 #ifdef EXTERNAL_CACHE
-void XIAContentModule::store_in_external_cache(CChunk *chunk)
+void XIAContentModule::store_in_external_cache(CChunk *chunk,
+											   xcache_context_t *context)
 {
 	xcache_req_t req;
 	WritablePacket *pkt;
@@ -103,9 +107,8 @@ void XIAContentModule::store_in_external_cache(CChunk *chunk)
 
 	req.request = XCACHE_STORE;
 	req.len = chunk->GetSize();
-
+	req.context = *context;
 	req.cid = chunk->id().xid();
-	req.ttl = 86400;
 
 	memcpy(buf, &req, sizeof(xcache_req_t));
 	memcpy(buf + sizeof(xcache_req_t), chunk->GetPayload(), req.len);
@@ -114,16 +117,17 @@ void XIAContentModule::store_in_external_cache(CChunk *chunk)
 	_transport->checked_output_push(2, pkt);
 }
 
-void XIAContentModule::search_external_cache(const XID &CID)
+void XIAContentModule::search_external_cache(Packet *p, const XID &CID)
 {
 	xcache_req_t req;
 	WritablePacket *pkt;
+    ContentHeader ch(p);
 
 	click_chatter("Sending search request to external cache\n");
 	click_chatter("My HID: %s\n", _transport->local_hid().unparse().c_str());
 	req.request = XCACHE_SEARCH;
 	req.len = 0;
-
+	ch_to_context(&req.context, ch);
 	req.cid = CID.xid();
 
 	pkt = Packet::make(0, &req , sizeof(xcache_req_t), 0);
@@ -141,13 +145,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 
     HashTable<XID,CChunk*>::iterator it;
 
-#ifdef EXTERNAL_CACHE
-    fprintf(loggerfp, "%s: [Lookup] local HID: %s, src HID: %s,  Dest CID: %s\n",
-			__func__, _transport->local_hid().unparse().c_str(),
-			srcHID.unparse().c_str(), dstCID.unparse().c_str());
-	fflush(loggerfp);
 	/* forward_to_external_cache(dstCID); */
-#endif
 
 #ifdef handle_malicious
 	if(malicious) {
@@ -201,55 +199,8 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 	}
 #endif
 
-#ifdef CLIENT_CACHE_not_anymore
-    if(srcHID == _transport->local_hid()) {
-        ContentHeader ch(p);
-        if(it!=_contentTable.end() && (content[dstCID]=1)
-		   /* This is an intended assignemnt */
-		   && (ch.opcode()==ContentHeader::OP_REQUEST)) {
-			/* Filter out redundant request for RPT reliability */
-            XIAHeaderEncap encap;
-            XIAHeader hdr(p);
-
-            XIAPath srcPath, dstPath;
-            char* pl=it->second->GetPayload();
-            unsigned int s=it->second->GetSize();
-
-            handle_t s_dummy=srcPath.add_node(XID());
-            handle_t s_cid=srcPath.add_node(dstCID);
-            srcPath.add_edge(s_dummy, s_cid);
-
-            handle_t d_dummy=dstPath.add_node(XID());
-            XID	_destination_xid = hdr.src_path().xid(hdr.src_path().destination_node());   //Find the last node of the source, it can be a HID or SID
-            handle_t d_xid=dstPath.add_node(_destination_xid);
-            dstPath.add_edge(d_dummy, d_xid);
-
-            encap.set_src_path(srcPath);
-            encap.set_dst_path(dstPath);
-            encap.set_plen(s);
-            encap.set_nxt(CLICK_XIA_NXT_CID);
-
-            ContentHeaderEncap  contenth(0, 0, 0, s);
-
-            uint16_t hdrsize = encap.hdr_size()+ contenth.hlen();
-            WritablePacket *newp = Packet::make(hdrsize, pl , s, 20 );
-
-            newp=contenth.encap(newp);
-            newp=encap.encap( newp, false );	      // add XIA header
-
- 	    click_chatter("Found in my local cache! CID: %s, Local Address: %s\n", dstCID.unparse().c_str(),  _transport->local_hid().unparse().c_str());
-            _transport->checked_output_push(1 , newp);
-            //std::cout<<"In client"<<std::endl;
-            //std::cout<<"payload: "<<pl<<std::endl;
-            //std::cout<<"have pushed out"<<std::endl;
-        }
-        p->kill();
-        return ;
-    }
-#endif
-    // server, router
 	if(pl && s > 0)	{
-        std::cout<<"look up cache in router or server"<<std::endl;
+		/* Server / Router and Client caches are handled here */
         XIAHeaderEncap encap;
         XIAHeader hdr(p);
         XIAPath myown_source;  // AD:HID:CID add_node, add_edge
@@ -268,6 +219,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
         unsigned int cp=0;
         ContentHeaderEncap  dummy_contenth(0, 0, 0, 0);
 		if(srcHID == _transport->local_hid()) {
+			/* Local Cache */
             ContentHeaderEncap  contenth(0, 0, 0, s);
             uint16_t hdrsize = encap.hdr_size()+ contenth.hlen();
             WritablePacket *newp = Packet::make(hdrsize, pl, s, 20);
@@ -280,6 +232,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 						  _transport->local_hid().unparse().c_str());
 			_transport->checked_output_push(1 , newp);
 		} else {
+			/* Server / Router */
 			while(cp < s) {
 				uint16_t hdrsize = encap.hdr_size()+ dummy_contenth.hlen();
 				int l= (s-cp) < (PKTSIZE - hdrsize) ? (s-cp) : (PKTSIZE - hdrsize);
@@ -299,8 +252,7 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 			}
 		}
         p->kill();
-    } else { //printf("dstID is not found in cache, pkt killed\n");
-        std::cout<<"not found, kill pkt"<<std::endl;
+    } else {
 		click_chatter("no content found\n");
         p->kill();
     }
@@ -311,6 +263,7 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
     XIAHeader xhdr(p);  // parse xia header and locate nodes and payload
     ContentHeader ch(p);
     const unsigned char *payload=xhdr.payload();
+	xcache_context_t context;
 
     int offset=ch.chunk_offset();
     int length=ch.length();
@@ -318,26 +271,16 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 
     //std::cout<<"dst is not myself"<<std::endl;
     HashTable<XID,CChunk*>::iterator it;
-#ifdef EXTERNAL_CACHE
-    fprintf(loggerfp, "%s: [Lookup] local HID: %s, src HID: %s\n",
-			__func__, _transport->local_hid().unparse().c_str(),
-			srcCID.unparse().c_str());
-	fflush(loggerfp);
-#endif
+
+	ch_to_context(&context, ch);
+
 	it=_partialTable.find(srcCID);
 	if(it!=_partialTable.end()) { //found in partialTable
 		partial[it->first]=1;
 		CChunk *chunk=it->second;
 		chunk->fill(payload, offset, length);
 		if(chunk->full()) {
-#ifdef EXTERNAL_CACHE
-			fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
-					__func__, __LINE__,
-					_transport->local_hid().unparse().c_str(),
-					srcCID.unparse().c_str());
-			fflush(loggerfp);
-			store_in_external_cache(chunk);
-#endif
+			store_in_external_cache(chunk, &context);
 			addRoute(srcCID);
 			partial.erase(it->first);
 			_partialTable.erase(it);
@@ -347,14 +290,7 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 		chunk->fill(payload, offset, length);//  allocate space for new chunk
 
 		if(chunk->full()) {
-#ifdef EXTERNAL_CACHE
-			fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
-					__func__, __LINE__,
-					_transport->local_hid().unparse().c_str(),
-					srcCID.unparse().c_str());
-			fflush(loggerfp);
-			store_in_external_cache(chunk);
-#endif
+			store_in_external_cache(chunk, &context);
 			//modify routing table	  //add
 			addRoute(srcCID);
 		} else {
@@ -363,12 +299,9 @@ void XIAContentModule::cache_incoming_forward(Packet *p, const XID& srcCID)
 		}
 		usedSize += chunkSize;
 	}
-    //lru refresh
-    //printf("lru refresh\n");
-    //std::cout<<timer<<std::endl;
+
     _timer++;
     p->kill();
-    //printf("end: dstHID is not myself\n");
 }
 
 void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool local_putcid, bool pushcid)
@@ -384,13 +317,9 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
     HashTable<XID,CChunk*>::iterator it,oit;
     bool chunkFull=false;
     CChunk* chunk;
+	xcache_context_t context;
 
-#ifdef EXTERNAL_CACHE
-	fprintf(loggerfp, "%s:%d: [LookUP] local HID: %s, src HID: %s\n",
-			__func__, __LINE__,
-			_transport->local_hid().unparse().c_str(), srcCID.unparse().c_str());
-	fflush(loggerfp);
-#endif
+	ch_to_context(&context, ch);
 
     it=_partialTable.find(srcCID);
 	if(it!=_partialTable.end()) {
@@ -425,14 +354,7 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
             _transport->checked_output_push(1 , newp);
 		}
 		addRoute(srcCID);
-#ifdef EXTERNAL_CACHE
-		fprintf(loggerfp, "%s:%d: [Store] local HID: %s, src HID: %s\n",
-				__func__, __LINE__,
-				_transport->local_hid().unparse().c_str(),
-				srcCID.unparse().c_str());
-		fflush(loggerfp);
-		store_in_external_cache(chunk);
-#endif
+		store_in_external_cache(chunk, &context);
 
         delete chunk;
     }
@@ -443,22 +365,6 @@ void XIAContentModule::cache_incoming_local(Packet* p, const XID& srcCID, bool l
     }
 
     p->kill();
-}
-
-/**
- * @brief Clean up local cache based on policy
- *
- * @returns Void
- */ 
-void XIAContentModule::applyLocalCachePolicy(int contextID){
-}
-
-/**
- * @brief check if a content is expired
- * 
- * @returns True if it is expired
- */
-bool XIAContentModule::isExpiredContent(struct contentMeta* cm){
 }
 
 void XIAContentModule::cache_incoming_remove(Packet *p, const XID& srcCID)
@@ -485,6 +391,8 @@ XIAContentModule::cache_incoming(Packet *p, const XID& srcCID,
     bool local_putcid = (ch.opcode() == ContentHeader::OP_LOCAL_PUTCID);
     bool local_removecid= (ch.opcode() == ContentHeader::OP_LOCAL_REMOVECID);
     bool local_pushcid= (ch.opcode() == ContentHeader::OP_PUSH);
+
+	printf("ContextID for incoming packet: %d\n", ch.contextID());
 
     if (CACHE_DEBUG) {
         click_chatter("--Cache incoming--%s %s",

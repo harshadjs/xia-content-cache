@@ -6,9 +6,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "xcache_helpers.h"
+#include "helpers.h"
 #include "xcache.h"
-#include "xcache_controller.h"
+#include "controller.h"
 #include "xcache_main.h"
 #include "xia_cache_req.h"
 
@@ -51,28 +51,13 @@ xcache_fragment_and_send(xcache_meta_t *meta,
 		   (struct sockaddr *)&click_addr, sizeof(struct sockaddr));
 }
 
-static void
-xcache_search_and_respond(xcache_req_t *req)
-{
-	xcache_meta_t *meta;
-	uint8_t *data;
-
-	meta = xctrl_get_meta(req);
-	printf("[Meta: %p]\n", meta);
-	data = xcache_alloc(meta->len);
-	xctrl_get_data(meta, data);
-	if(!meta || !data /* || !xcache_node->full */)
-		/* XXX: Again, send a DENY */
-		return;
-
-	xcache_fragment_and_send(meta, data);
-}
-
 static void xcache_inbound_udp(void)
 {
 	socklen_t slen = sizeof(click_addr);
 	uint8_t packet[UDP_MAX_PKT], *payload;
 	xcache_req_t *req;
+	uint8_t *data;
+	xcache_meta_t *meta;
 
 	recvfrom(s, packet, UDP_MAX_PKT, 0,
 			 (struct sockaddr *)&click_addr, &slen);
@@ -84,7 +69,11 @@ static void xcache_inbound_udp(void)
 	if(req->request == XCACHE_STORE) {
 		xctrl_store(req, payload);
 	} else if(req->request == XCACHE_SEARCH) {
-		xcache_search_and_respond(req);
+		meta = xctrl_search(&data, req);
+		if(meta) {
+			xcache_fragment_and_send(meta, data);
+			xfree(data);
+		}
 	}
 }
 

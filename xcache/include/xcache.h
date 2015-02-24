@@ -7,23 +7,30 @@
 #include "xia_cache_req.h"
 
 /**
- * Xcache Plugin Macros:
+ * Xcache Store Macros:
  */
-#ifdef XCACHE_PLUGIN_PRIO
-#define PRIO XCACHE_PLUGIN_PRIO
+#ifdef XCACHE_STORE_PRIO
+#define PRIO XCACHE_STORE_PRIO
 /* Initializtion macro */
-#define _xcache_plugin_init \
-	__attribute__((constructor((XCACHE_PLUGIN_PRIO) + 100))) _XCACHE_PLUGIN_INIT
+#define _xcache_store_init \
+	__attribute__((constructor((XCACHE_STORE_PRIO) + 100))) _XCACHE_STORE_INIT
 
-#define SET_PRIV(__xcache_meta, __plugin_obj)				\
-	(__xcache_meta)->priv								\
-				   = (void *)(__plugin_obj)
+#define SET_STORE_PRIV(__xcache_meta, __store_obj)	\
+	(__xcache_meta)->store_priv						\
+				   = (void *)(__store_obj)
 
-#define GET_PRIV(__xcache_meta)	((__xcache_meta)->priv)
+#define GET_STORE_PRIV(__xcache_meta)	((__xcache_meta)->store_priv)
 
-#endif /* XCACHE_PLUGIN_PRIO */
+#endif /* XCACHE_STORE_PRIO */
 
-#include <_plugins.autogen.h>
+#include <_stores.autogen.h>
+
+#define SET_POLICY_PRIV(__xcache_meta_or_slice, __policy_obj)	\
+	(__xcache_meta_or_slice)->policy_priv						\
+							= (void *)(__policy_obj)
+
+#define GET_POLICY_PRIV(__xcache_meta_or_slice)	\
+	((__xcache_meta_or_slice)->policy_priv)
 
 typedef enum {
 	RET_CACHED,
@@ -33,7 +40,7 @@ typedef enum {
 	RET_FAIL,
 } xret_t;
 
-struct xcache_plugin;
+struct xcache_store;
 
 /* Content object */
 typedef struct {
@@ -49,17 +56,16 @@ typedef struct {
 	/* Time at which this object was inserted */
 	uint32_t aticks;
 
-	/* Time to live */
-	uint32_t ttl;
-
-	/* Number of plugins holding this data */
+	/* Number of slices holding this data */
 	int ref_count;
 
-	/* Plugin that stores this content */
-	struct xcache_plugin *plugin;
+	/* Store that stores this content */
+	struct xcache_store *store;
 
-	/* xcache plugin objects */
-	void *priv;
+	/* xcache store objects */
+	void *store_priv;
+
+	void *policy_priv;
 } xcache_meta_t;
 
 #define UNLIMITED64 (~((uint64_t)(0x0)))
@@ -69,16 +75,16 @@ typedef struct {
 #define UNLIMITED_ITEMS UNLIMITED32
 #define UNLIMITED_BANDWIDTH UNLIMITED32
 
-struct xcache_plugin_conf {
+struct xcache_store_conf {
 	uint64_t max_size;		/* in bytes */
 	uint32_t max_items; 	/* */
 	uint32_t bandwidth; 	/* in bps */
 };
 
-struct xcache_plugin {
+struct xcache_store {
 	char *name;
 
-	struct xcache_plugin_conf conf;
+	struct xcache_store_conf conf;
 	/**
 	 * __xcache_store:
 	 * New content object arrived.
@@ -101,22 +107,23 @@ struct xcache_plugin {
 	 * @returns Data for searched object
 	 * @returns NULL if not found
 	 *
-	 * Note: __xcache_search will be called for plugin 'n' only if
-	 * (n-1) plugins before it returned NULL. That's why the order of plugins
-	 * matters. The order of plugins is defined in plugins/order.conf.
+	 * Note: __xcache_search will be called for store 'n' only if
+	 * (n-1) stores before it returned NULL. That's why the order of stores
+	 * matters. The order of stores is defined in stores/order.conf.
 	 */
-	uint8_t *(*get)(xcache_meta_t *, uint8_t *);
+	xret_t (*get)(xcache_meta_t *, uint8_t *);
 
 	xret_t (*evict)(xcache_meta_t *);
 };
 
 /**
- * xcache_register_plugin:
- * Register Xcache plugin.
+ * xcache_register_store:
+ * Register Xcache store.
  */
-int xcache_register_plugin(struct xcache_plugin *);
+int xcache_register_store(struct xcache_store *);
 
-void *xcache_alloc(size_t size);
-void xcache_free(void *);
+void *xalloc(size_t size);
+void xfree(void *);
 
+extern uint32_t ticks;
 #endif

@@ -15,8 +15,6 @@
 
 CLICK_DECLS
 
-#define EXTERNAL_CACHE
-
 XIACache::XIACache()
 {
     cp_xid_type("CID", &_cid_type);
@@ -88,7 +86,6 @@ XIACache::configure(Vector<String> &conf, ErrorHandler *errh)
     return 0;
 }
 
-#ifdef EXTERNAL_CACHE
 /**
  * xia_handle_cache_response:
  * Handles packets sent by external xcache.
@@ -131,20 +128,17 @@ void XIACache::xcache_handle_response(Packet *p_cache)
 	payload = ((char *)req + sizeof(xcache_req_t));
 	_content_module->process_request(p, srcHID, CID, payload, req->len);
 }
-#endif
 
 void XIACache::xcache_push(int port, Packet *p)
 {
     const struct click_xia* hdr;
 	XIACache *xcache;
 
-#ifdef EXTERNAL_CACHE
 	if(port == 2) {
 		click_chatter("[2]: Calling xia_handle_cache_response\n");
 		xcache_handle_response(p);
 		return;
 	}
-#endif
 
 	hdr = p->xia_header();
 
@@ -182,16 +176,12 @@ void XIACache::xcache_push(int port, Packet *p)
 
 		/* this sends chunk response to output 0 (network) or to 1 (application,
 		 * if the request came from application and content is locally cached)  */
-#ifdef EXTERNAL_CACHE
-		_content_module->search_external_cache(dstID);
+		_content_module->search_external_cache(p, dstID);
 		click_chatter("[%s] Pending request added for %s\n",
 					  _local_hid.unparse().c_str(),
 					  dstID.unparse().c_str());
 		_content_module->_pendingReqTable[dstID] = p->clone();
 		return;
-#else
-		_content_module->process_request(p, srcHID, dstID);
-#endif
     }
     else
     {

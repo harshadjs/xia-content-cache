@@ -64,6 +64,9 @@ ChunkContext *XallocCacheSlice(unsigned policy, unsigned ttl, unsigned size) {
 
         ChunkContext *newCtx = (ChunkContext *)malloc(sizeof(ChunkContext));
 
+        newCtx->contextID = getpid();
+        newCtx->cachePolicy = policy;
+        newCtx->cacheSize = size;
 		newCtx->ttl = ttl;
         newCtx->sockfd = sockfd;
 //        LOGF("New CTX: sock,policy,size=%d,%d,%d\n", sockfd, policy, size);
@@ -145,8 +148,11 @@ int XputChunk(const ChunkContext *ctx, const char *data, unsigned length, ChunkI
 
     xia::X_Putchunk_Msg *_msg = xsm.mutable_x_putchunk();
 
+    _msg->set_contextid(ctx->contextID);
     _msg->set_payload((const char *)data, length);
     _msg->set_ttl(ctx->ttl);
+    _msg->set_cachesize(ctx->cacheSize);
+    _msg->set_cachepolicy(ctx->cachePolicy);
 
 	if ((rc = click_send(ctx->sockfd, &xsm)) < 0) {
 		LOGF("Error talking to Click: %s", strerror(errno));
@@ -391,6 +397,7 @@ int XremoveChunk(ChunkContext *ctx, const char *cid)
     xsm.set_type(xia::XREMOVECHUNK);
     xia::X_Removechunk_Msg *_msg = xsm.mutable_x_removechunk();
 
+    _msg->set_contextid(ctx->contextID);
     _msg->set_cid(cid);
 
 	if ((rc = click_send(ctx->sockfd, &xsm)) < 0) {

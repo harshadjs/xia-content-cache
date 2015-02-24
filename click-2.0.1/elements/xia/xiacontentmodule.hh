@@ -103,14 +103,9 @@ protected:
     void cache_incoming_forward(Packet *p, const XID& srcCID);
     void cache_incoming_remove(Packet *p, const XID& srcCID);
     void cache_management();
-#ifdef EXTERNAL_CACHE
-	void store_in_external_cache(CChunk *chunk);
-	void search_external_cache(const XID &);
-#endif
+	void store_in_external_cache(CChunk *chunk, xcache_context_t *);
+	void search_external_cache(Packet *, const XID &);
 private:
-#ifdef EXTERNAL_CACHE
-	FILE *loggerfp;
-#endif
     XIATransport* _transport;
     XIAPath _local_addr;
     XIAXIDRouteTable *_routeTable;  //XIAXIDRouteTable
@@ -128,13 +123,9 @@ private:
     static const int REFRESH=1000000;
     int _timer;
     HashTable<XID, int> partial;
-    HashTable<XID, int> content;
+
     Packet *makeChunkResponse(CChunk * chunk, Packet *p_in);
     Packet *makeChunkPush(CChunk * chunk, Packet *p_in);
-
-    //Cache Policy
-    void applyLocalCachePolicy(int);
-    bool isExpiredContent(struct contentMeta* cm);
 
     //modify routing table
     void addRoute(const XID &cid) {

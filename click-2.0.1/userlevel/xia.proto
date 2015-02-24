@@ -127,11 +127,14 @@ message X_Getsockopt_Msg {
 }
 
 message X_Putchunk_Msg {
-  required int32 TTL = 1;
-  required bytes payload = 2; // data
-  optional string cid = 3;
-  optional int32 length = 4;
-  optional int64 timestamp = 5; 
+  required int32 cachepolicy = 1;
+  required int32 cachesize = 2;
+  required int32 contextid = 3;
+  required int32 TTL = 4;
+  required bytes payload = 5; // data
+  optional string cid = 6;
+  optional int32 length = 7;
+  optional int64 timestamp = 8; 
 }
 
 message X_Requestchunk_Msg {
@@ -151,8 +154,9 @@ message X_Readchunk_Msg {
 }
 
 message X_Removechunk_Msg {
-	required string cid = 1;
-	optional int32 status = 2;
+    required int32 contextid =1 ;
+	required string cid = 2;
+	optional int32 status = 3;
 }
 
 message X_Result_Msg {
@@ -228,11 +232,14 @@ message msg_response {
 
 message X_Pushchunkto_Msg {
   required string ddag = 1; // dest dag
-  required int32 TTL = 2;
-  required bytes payload = 3; // data
-  required string cid = 4;
-  required int32 length = 5;
-  optional int64 timestamp = 6; 
+  required int32 cachepolicy = 2;
+  required int32 cachesize = 3;
+  required int32 contextid = 4;
+  required int32 TTL = 5;
+  required bytes payload = 6; // data
+  required string cid = 7;
+  required int32 length = 8;
+  optional int64 timestamp = 9; 
 }
 
 
