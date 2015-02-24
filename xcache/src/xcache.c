@@ -125,6 +125,7 @@ static int xcache_main_loop(void)
 		}
 
 	}
+
 	return 0;
 }
 

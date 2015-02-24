@@ -49,6 +49,8 @@ create_or_lookup_slice(xcache_req_t *req)
 	if(!slice)
 		return NULL;
 
+	xslice_init(slice);
+
 	ht_add(xctrl.slice_ht, slice);
 	return slice;
 }
@@ -95,7 +97,6 @@ xctrl_remove(xcache_meta_t *meta)
 
 void xctrl_timer(void)
 {
-	/* TODO: Check TTL of every slice */
 }
 
 void xctrl_send_timeout(xcache_meta_t *meta)

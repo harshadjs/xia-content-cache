@@ -1,4 +1,4 @@
-OBJS=memht.o backend.o
+OBJS=memht.o
 all: $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $^ $(LDFLAGS)

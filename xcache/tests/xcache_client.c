@@ -156,9 +156,11 @@ void dump_received(uint8_t *data)
 	xcache_req_t *req = (xcache_req_t *)data;
 	int i;
 
+	printf("Size = %d\n", req->len);
 	for(i = 0; i < req->len; i++) {
 		printf("%c", data[sizeof(xcache_req_t) + i]);
 	}
+	printf("\n");
 }
 
 int main(int argc, char *argv[])
@@ -169,6 +171,11 @@ int main(int argc, char *argv[])
 	int fd;
 	int file_size;
 	socklen_t socklen;
+
+	if(argc < 2) {
+		printf("Usage: %s search|store <cid> <filename> <ttl>\n", argv[0]);
+		return 0;
+	}
 
 	payload = packet;
 	payload += sizeof(xcache_req_t);
@@ -181,8 +188,9 @@ int main(int argc, char *argv[])
 	if(strcmp(argv[1], "search") == 0) {
 		create_search_req(&req, str2cid(argv[2]));
 		send_data((uint8_t *)&req, sizeof(req));
-		recvfrom(sock, packet, UDP_MAX_PKT, 0,
-				 (struct sockaddr *)&dest_addr, &socklen);
+		printf("Received: %d\n",
+			   recvfrom(sock, packet, UDP_MAX_PKT, 0,
+						(struct sockaddr *)&dest_addr, &socklen));
 		dump_received(packet);
 	} else if(strcmp(argv[1], "store") == 0) {
 		/* xcache_client store <cid> <filename> <ttl> */

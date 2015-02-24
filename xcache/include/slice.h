@@ -33,4 +33,5 @@ xslice_store(xcache_slice_t *slice, xcache_meta_t *meta, uint8_t *data);
 xcache_meta_t *
 xslice_search(uint8_t **data, xcache_slice_t *slice, xcache_req_t *req);
 void xslice_flush(xcache_slice_t *slice);
+int xslice_init(xcache_slice_t *slice);
 #endif
