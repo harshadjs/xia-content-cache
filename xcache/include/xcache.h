@@ -9,21 +9,16 @@
 /**
  * Xcache Store Macros:
  */
-#ifdef XCACHE_STORE_PRIO
-#define PRIO XCACHE_STORE_PRIO
+
 /* Initializtion macro */
-#define _xcache_store_init \
-	__attribute__((constructor((XCACHE_STORE_PRIO) + 100))) _XCACHE_STORE_INIT
+#define _xcache_store_init						\
+	static __attribute__((constructor)) _init
 
 #define SET_STORE_PRIV(__xcache_meta, __store_obj)	\
 	(__xcache_meta)->store_priv						\
 				   = (void *)(__store_obj)
 
 #define GET_STORE_PRIV(__xcache_meta)	((__xcache_meta)->store_priv)
-
-#endif /* XCACHE_STORE_PRIO */
-
-#include <_stores.autogen.h>
 
 #define SET_POLICY_PRIV(__xcache_meta_or_slice, __policy_obj)	\
 	(__xcache_meta_or_slice)->policy_priv						\
