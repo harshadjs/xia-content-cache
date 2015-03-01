@@ -22,6 +22,18 @@ inline dlist_node_t *dlist_create(void)
 	return dlist_new_node();
 }
 
+static inline int dlist_create_and_insert(dlist_node_t **list, void *data)
+{
+	/* It's an empty list */
+	*list = dlist_create();
+	if(!(*list))
+		return 1; /* dlist_create failed to allocate */
+
+	(*list)->data = data;
+	return 0;
+
+}
+
 /**
  * dlist_insert_tail:
  * Inserts a node at the tail of list.
@@ -36,15 +48,8 @@ int dlist_insert_tail(dlist_node_t **list, void *data)
 
 	p = (*list);
 
-	if(!p) {
-		/* It's an empty list */
-		*list = dlist_create();
-		if(!(*list))
-			return 1; /* dlist_create failed to allocate */
-
-		(*list)->data = data;
-		return 0;
-	}
+	if(!p)
+		return dlist_create_and_insert(list, data);
 
 	while(p->next) {
 		p = p->next;
@@ -63,6 +68,41 @@ int dlist_insert_tail(dlist_node_t **list, void *data)
 	q->data = data;
 
 	return 0;
+}
+
+/**
+ * dlist_insert_sorted:
+ * Inserts a node in a sorted manner.
+ * @args **list:	Double pointer to head of the list
+ * @args *data:		Pointer to data
+ * @args cmp:		Comparator function
+ * @returns	0:		Success
+ *			1:		Failure
+ */
+int
+dlist_insert_sorted(dlist_node_t **list, void *data, int (*cmp)(void *, void*))
+{
+	dlist_node_t *p, *q;
+
+	p = (*list);
+
+	if(!p)
+		return dlist_create_and_insert(list, data);
+
+	while(p) {
+		if(cmp(p->data, data) <= 0) {
+			q = dlist_new_node();
+			q->next = p;
+			q->prev = p->prev;
+			if(p->prev)
+				p->prev->next = q;
+			p->prev = q;
+			return 0;
+		}
+		p = p->next;
+	}
+
+	return dlist_insert_tail(list, data);
 }
 
 /**

@@ -33,4 +33,6 @@ int dlist_find_n_remove_node(dlist_node_t **head, void *key,
 							 int (*cmp)(void *, void *),
 							 void (*cleanup)(void *));
 void dlist_flush(dlist_node_t **list, void (*cleanup)(void *));
+int
+dlist_insert_sorted(dlist_node_t **list, void *data, int (*cmp)(void *, void*));
 #endif /* __LIST_H__ */

@@ -11,6 +11,8 @@
 #include "controller.h"
 #include "xcache_main.h"
 #include "xia_cache_req.h"
+#include "logger.h"
+#include "timer.h"
 
 /* Global time counter: incremented every second */
 uint32_t ticks;
@@ -119,11 +121,13 @@ static int xcache_main_loop(void)
 
 		if((n == 0) && (timeout.tv_sec == 0) && (timeout.tv_usec == 0)) {
 			/* It's a timeout */
-			ticks ++;
+			ticks++;
+			if(ticks == xcache_get_next_timeout()) {
+				xcache_handle_timeout();
+			}
 			xcache_set_timeout(&timeout);
 			xctrl_timer();
 		}
-
 	}
 
 	return 0;
@@ -131,6 +135,7 @@ static int xcache_main_loop(void)
 
 int main(int argc, char *argv[])
 {
+	set_log_level(LOG_INFO);
 	xctrl_init();
 	return xcache_main_loop();
 }

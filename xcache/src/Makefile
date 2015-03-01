@@ -7,7 +7,8 @@ OBJS += helpers.o
 OBJS += api.o
 OBJS += slice.o
 OBJS += meta.o
-
+OBJS += logger.o
+OBJS += timer.o
 
 all: $(OBJS)
 

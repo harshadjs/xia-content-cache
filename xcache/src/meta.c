@@ -49,8 +49,10 @@ xcache_meta_t *xcache_req2meta(xcache_req_t *req)
 	return meta;
 }
 
-ht_t *xcache_new_metaht(void)
+ht_t *xcache_new_metaht(int use_cleanup)
 {
 	/* TODO: 23?? */
-	return ht_create(23, _hash, _compar, _cleanup);
+	return (use_cleanup == METAHT_USE_CLEANUP)
+		? ht_create(23, _hash, _compar, _cleanup) :
+		ht_create(23, _hash, _compar, NULL);
 }

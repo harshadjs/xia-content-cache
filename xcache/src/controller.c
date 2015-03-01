@@ -12,7 +12,7 @@
 
 static xctrl_t xctrl;
 
-#define DEFAULT_XCACHE_SIZ 1000 // TODO: Really?
+#define DEFAULT_XCACHE_SIZ  ((uint64_t)(500 * 1024 * 1024))
 #define BUCKETS 23
 
 static xcache_slice_t *new_slice(xcache_req_t *req)
@@ -88,6 +88,11 @@ xcache_meta_t *xctrl_search(uint8_t **data, xcache_req_t *req)
 	return xslice_search(data, slice, req);
 }
 
+void xctrl_remove_slice(xcache_slice_t *slice)
+{
+	ht_remove(xctrl.slice_ht, slice);
+}
+
 void
 xctrl_remove(xcache_meta_t *meta)
 {
@@ -134,14 +139,13 @@ static void _cleanup(void *val)
 	if(!slice)
 		return;
 
-	xslice_flush(slice);
 	xfree(slice);
 }
 
 int xctrl_init(void)
 {
 	xctrl.slice_ht = ht_create(BUCKETS, _hash, _compar, _cleanup);
-	xctrl.meta_ht = xcache_new_metaht();
+	xctrl.meta_ht = xcache_new_metaht(METAHT_USE_CLEANUP);
 	xctrl.max_size = DEFAULT_XCACHE_SIZ;
 	xctrl.cur_size = 0;
 

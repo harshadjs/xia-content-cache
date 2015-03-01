@@ -8,6 +8,8 @@
 #include "core.h"
 #include "xcache_main.h"
 #include "meta.h"
+#include "logger.h"
+#include "timer.h"
 
 #define DEFAULT_XCACHE_SIZ 1000 // TODO: Really?
 #define BUCKETS 23
@@ -71,16 +73,32 @@ xslice_remove_meta(xcache_slice_t *slice, xcache_meta_t *meta)
 		xctrl_remove(meta);
 }
 
-/* TODO: Fill */
-void xslice_flush(xcache_slice_t *slice)
+void xslice_flush(void *data)
 {
+	ht_iter_t iter;
+	xcache_slice_t *slice = (xcache_slice_t *)data;
+	xcache_meta_t *meta;
+
+	log(LOG_INFO, "Slice timed out at %d!\n", ticks);
+	ht_iter_init(&iter, slice->meta_ht);
+	while((meta = (xcache_meta_t *)ht_iter_data(&iter)) != NULL) {
+		xslice_remove_meta(slice, meta);
+	}
+
+	xctrl_remove_slice(slice);
 }
 
 int xslice_init(xcache_slice_t *slice)
 {
-	slice->meta_ht = xcache_new_metaht();
+	slice->meta_ht = xcache_new_metaht(METAHT_DONTUSE_CLEANUP);
 	slice->max_size = DEFAULT_XCACHE_SIZ;
 	slice->cur_size = 0;
+
+	log(LOG_DEBUG, "New slice: current = %d, timeout = %d\n",
+		ticks, slice->ttl + ticks);
+
+	xcache_register_timeout(TICKS_FROM_NOW(slice->ttl),
+							xslice_flush, (void *)slice);
 
 	return 0;
 }

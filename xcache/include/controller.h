@@ -1,6 +1,7 @@
 #ifndef __XCACHE_CONTROLLER_H__
 #define __XCACHE_CONTROLLER_H__
 #include "xcache.h"
+#include "slice.h"
 
 typedef struct {
 	ht_t *meta_ht;
@@ -32,4 +33,6 @@ void xctrl_remove(xcache_meta_t *meta);
 
 /* DONE Send timeout (Change name) */
 void xctrl_send_timeout(xcache_meta_t *meta);
+
+void xctrl_remove_slice(xcache_slice_t *slice);
 #endif

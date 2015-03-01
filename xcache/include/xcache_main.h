@@ -8,7 +8,7 @@
  * This limit is currently kept for testing
  * Can be extended upto 65536 bytes.
  */
-#define UDP_MAX_PKT 4096
+#define UDP_MAX_PKT (64*1024)
 
 /* Global time counter. This is incremented every second */
 extern uint32_t ticks;

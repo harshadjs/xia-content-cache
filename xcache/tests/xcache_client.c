@@ -8,7 +8,7 @@
 #include <string.h>
 #include "xia_cache_req.h"
 
-#define UDP_MAX_PKT 4096
+#define UDP_MAX_PKT (64 * 1024)
 
 struct sockaddr_in dest_addr;
 uint8_t cid[CLICK_XIA_XID_ID_LEN];

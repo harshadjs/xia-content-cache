@@ -1,13 +1,15 @@
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <string.h>
 #include <hash_table.h>
 #include <stdio.h>
 #include <xcache.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include "logger.h"
 
-typedef struct {
-	char filename[512];
-} backend_node_t;
+#define XCACHE_DIR "/tmp/xcache_backend/"
 
 static uint64_t bytes;
 static uint32_t backend_index = 0;
@@ -16,30 +18,68 @@ static uint64_t max_cache_size;
 xret_t backend_store(xcache_meta_t *meta, uint8_t *data)
 {
 	int fd;
-	backend_node_t *node = xalloc(sizeof(backend_node_t));
+	char *filename;
 
-	printf("%s\n", __func__);
+
 	backend_index++;
-	sprintf(node->filename, "/tmp/xcache_backend/%d", backend_index);
-	SET_STORE_PRIV(meta, node);
+	filename = xalloc(128);
 
-	fd = open(node->filename, O_RDWR | O_CREAT, 777);
-	write(fd, data, meta->len);
+	snprintf(filename, 128, XCACHE_DIR"/%d", backend_index);
+	SET_STORE_PRIV(meta, filename);
+
+	fd = open(filename, O_RDWR | O_CREAT);
+
+	if(fd < 0) {
+		log(LOG_ERR, "Failed to open file.\n");
+		return RET_FAIL;
+	}
+
+	if(write(fd, data, meta->len) < meta->len) {
+		log(LOG_ERR, "Could not complete write.\n");
+		close(fd);
+		return RET_FAIL;
+	}
 	close(fd);
 
 	bytes += meta->len;
-	printf("Cached\n");
+
 	return RET_CACHED;
 }
 
 xret_t backend_get(xcache_meta_t *meta, uint8_t *dest)
 {
-	return RET_FAIL;
+	char *filename = GET_STORE_PRIV(meta);
+	int fd;
+
+	fd = open(filename, O_RDONLY);
+
+	if(fd < 0) {
+		log(LOG_ERR, "Failed to open file %s.\n", filename);
+		return RET_FAIL;
+	}
+
+	if(read(fd, dest, meta->len) < meta->len) {
+		log(LOG_ERR, "Incomplete read.\n");
+		close(fd);
+		return RET_FAIL;
+	}
+
+	close(fd);
+
+	return RET_OK;
 }
 
 xret_t backend_evict(xcache_meta_t *meta)
 {
-	free(GET_STORE_PRIV(meta));
+	char *filename = GET_STORE_PRIV(meta);
+
+	if(unlink(filename) < 0) {
+		log(LOG_ERR, "Failed to delete file %s.\n", filename);
+	}
+
+	xfree(GET_STORE_PRIV(meta));
+	SET_STORE_PRIV(meta, NULL);
+
 	return RET_OK;
 }
 
@@ -55,9 +95,16 @@ static struct xcache_store ht = {
 
 void _xcache_store_init(void)
 {
-	printf("Inside backend\n");
 	max_cache_size = 1024 * 1; /* 1024 bytes */
 
+	if((mkdir(XCACHE_DIR, 0775) < 0) && (errno != EEXIST)) {
+		log(LOG_ERR,
+			"Backend Store: Could not be initialized. Got '%s' while creating %s\n",
+			strerror(errno), XCACHE_DIR);
+		return;
+	}
+
+	log(LOG_INFO, "Backend Store Initialized.\n");
 	/* Store Init */
 	xcache_register_store(&ht);
 }
