@@ -6,7 +6,7 @@
 
 struct xcache_policy;
 
-typedef struct {
+typedef struct xcache_slice {
 	ht_t *meta_ht;
 	uint32_t max_size;
 	uint32_t cur_size;

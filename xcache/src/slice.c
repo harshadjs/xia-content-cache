@@ -40,6 +40,10 @@ xslice_store(xcache_slice_t *slice, xcache_meta_t *meta, uint8_t *data)
 	ht_add(slice->meta_ht, meta);
 	meta->ref_count++;
 
+	meta->slices = xrealloc(meta->slices,
+							meta->ref_count * sizeof(xcache_slice_t *));
+	meta->slices[meta->ref_count - 1] = slice;
+
 	slice->policy->store(slice, meta);
 
 	return xcore_store(meta, data);
@@ -63,14 +67,27 @@ xslice_search(uint8_t **data, xcache_slice_t *slice, xcache_req_t *req)
 void
 xslice_remove_meta(xcache_slice_t *slice, xcache_meta_t *meta)
 {
+	int i;
+
 	ht_remove(slice->meta_ht, meta);
-	meta->ref_count--;
 
 	slice->policy->remove(slice, meta);
 
 	slice->cur_size -= meta->len;
 	if(meta->ref_count == 0)
 		xctrl_remove(meta);
+
+	for(i = 0; i < meta->ref_count - 1; i++) {
+		if(meta->slices[i] == slice)
+			break;
+	}
+
+	for(; i < meta->ref_count - 1; i++) {
+		meta->slices[i] = meta->slices[i + 1];
+	}
+
+	meta->ref_count--;
+	meta->slices = xrealloc(meta->slices, meta->ref_count);
 }
 
 void xslice_flush(void *data)

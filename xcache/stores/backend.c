@@ -20,14 +20,13 @@ xret_t backend_store(xcache_meta_t *meta, uint8_t *data)
 	int fd;
 	char *filename;
 
-
 	backend_index++;
 	filename = xalloc(128);
 
 	snprintf(filename, 128, XCACHE_DIR"/%d", backend_index);
 	SET_STORE_PRIV(meta, filename);
 
-	fd = open(filename, O_RDWR | O_CREAT);
+	fd = open(filename, O_RDWR | O_CREAT, 0777);
 
 	if(fd < 0) {
 		log(LOG_ERR, "Failed to open file.\n");

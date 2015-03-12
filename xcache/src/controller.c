@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
+#include "logger.h"
 #include "xcache.h"
 #include "slice.h"
 #include "helpers.h"
@@ -82,8 +83,18 @@ xcache_meta_t *xctrl_search(uint8_t **data, xcache_req_t *req)
 {
 	xcache_slice_t *slice = lookup_slice(req);
 
-	if(!slice)
-		return NULL;
+	if(!slice) {
+		xcache_meta_t key, *meta;
+
+		log(LOG_DEBUG, "Slice lookup failed.\n");
+		key.cid = req->cid;
+		meta = ht_search(xctrl.meta_ht, &key);
+		if(!meta) {
+			log(LOG_DEBUG, "Meta lookup failed - Should not happen.\n");
+			return NULL;
+		}
+		slice = meta->slices[0];
+	}
 
 	return xslice_search(data, slice, req);
 }

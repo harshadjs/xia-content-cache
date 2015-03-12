@@ -42,6 +42,9 @@ uint8_t *str2cid(char *xid_str)
 
 	for(i = strlen(xid_str) - 1; i >= 0; i--) {
 		cid[j--] = xid_str[i] - '0';
+		if(cid[j + 1] > 9) {
+			cid[j + 1] -= 'a' - '9';
+		}
 	}
 
 	return cid;

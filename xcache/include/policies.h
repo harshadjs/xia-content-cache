@@ -14,11 +14,14 @@ struct xcache_policy {
 
 enum {
 	XCACHE_POLICY_FIFO,
+	XCACHE_POLICY_MAX
 };
 
 
 extern struct xcache_policy *policies[];
 
-#define POLICY_ID_TO_OBJ(__id) (policies[__id])
+#define POLICY_ID_TO_OBJ(__id) (((__id) >= XCACHE_POLICY_MAX) ? \
+								policies[XCACHE_POLICY_FIFO] :	\
+								policies[__id])
 
 #endif /* __POLICIES_H__ */

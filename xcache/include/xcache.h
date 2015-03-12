@@ -37,6 +37,8 @@ typedef enum {
 
 struct xcache_store;
 
+struct xcache_slice;
+
 /* Content object */
 typedef struct {
 	/* Content ID */
@@ -56,6 +58,9 @@ typedef struct {
 
 	/* Store that stores this content */
 	struct xcache_store *store;
+
+	/* Slice of this meta object */
+	struct xcache_slice **slices;
 
 	/* xcache store objects */
 	void *store_priv;

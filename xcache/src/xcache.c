@@ -73,8 +73,11 @@ static void xcache_inbound_udp(void)
 	} else if(req->request == XCACHE_SEARCH) {
 		meta = xctrl_search(&data, req);
 		if(meta) {
+			log(LOG_INFO, "Found.\n");
 			xcache_fragment_and_send(meta, data);
 			xfree(data);
+		} else {
+			log(LOG_INFO, "Could not find.\n");
 		}
 	}
 }

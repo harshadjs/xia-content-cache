@@ -999,6 +999,8 @@ void XTRANSPORT::ProcessCachePacket(WritablePacket *p_in)
 		int i = 0;
 		SHA1_ctx sha_ctx;
 		unsigned char digest[HASH_KEYSIZE];
+
+		click_chatter("Packet length = %d\n", xiah.plen());
 		SHA1_init(&sha_ctx);
 		SHA1_update(&sha_ctx, (unsigned char *)xiah.payload(), xiah.plen());
 		SHA1_final(digest, &sha_ctx);

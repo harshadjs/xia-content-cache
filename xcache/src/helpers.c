@@ -49,6 +49,14 @@ void *xalloc(size_t size)
 #endif
 }
 
+void *xrealloc(void *ptr, size_t size)
+{
+#ifdef __KERNEL__
+	return kmalloc(GFP_KERNEL, size);
+#else
+	return realloc(ptr, size);
+#endif
+}
 void *xcache_zalloc(size_t size)
 {
 	void *mem = xalloc(size);

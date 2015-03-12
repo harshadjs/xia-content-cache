@@ -199,62 +199,54 @@ void XIAContentModule::process_request(Packet *p, const XID & srcHID,
 	}
 #endif
 
-	if(pl && s > 0)	{
-		/* Server / Router and Client caches are handled here */
-        XIAHeaderEncap encap;
-        XIAHeader hdr(p);
-        XIAPath myown_source;  // AD:HID:CID add_node, add_edge
+	if(!(pl && s > 0)) {
+		click_chatter("no content found\n");
+		p->kill();
+		return;
+    }
 
-        myown_source = _transport->local_addr();
-        handle_t _cid=myown_source.add_node(dstCID);
+	/* Server / Router and Client caches are handled here */
+	XIAHeaderEncap encap;
+	XIAHeader hdr(p);
+	XIAPath myown_source;  // AD:HID:CID add_node, add_edge
 
-        myown_source.add_edge(myown_source.source_node(), _cid);
-        myown_source.add_edge(myown_source.destination_node(), _cid);
-        myown_source.set_destination_node(_cid);
-        encap.set_src_path(myown_source);
-        encap.set_dst_path(hdr.src_path());
-        encap.set_nxt(CLICK_XIA_NXT_CID);
+	myown_source = _transport->local_addr();
+	handle_t _cid=myown_source.add_node(dstCID);
 
-        // add content header   dataoffset
-        unsigned int cp=0;
-        ContentHeaderEncap  dummy_contenth(0, 0, 0, 0);
+	myown_source.add_edge(myown_source.source_node(), _cid);
+	myown_source.add_edge(myown_source.destination_node(), _cid);
+	myown_source.set_destination_node(_cid);
+	encap.set_src_path(myown_source);
+	encap.set_dst_path(hdr.src_path());
+	encap.set_nxt(CLICK_XIA_NXT_CID);
+
+	// add content header   dataoffset
+	unsigned int cp=0;
+	ContentHeaderEncap  dummy_contenth(0, 0, 0, 0);
+	while(cp < s) {
+		uint16_t hdrsize = encap.hdr_size()+ dummy_contenth.hlen();
+		int l= (s-cp) < (PKTSIZE - hdrsize) ? (s-cp) : (PKTSIZE - hdrsize);
+		ContentHeaderEncap  contenth(0, cp, l, s);
+		//build packet
+		WritablePacket *newp = Packet::make(hdrsize, pl + cp , l, 20 );
+		newp=contenth.encap(newp);
+		encap.set_plen(l);	// add XIA header
+		newp=encap.encap( newp, false );
+
 		if(srcHID == _transport->local_hid()) {
-			/* Local Cache */
-            ContentHeaderEncap  contenth(0, 0, 0, s);
-            uint16_t hdrsize = encap.hdr_size()+ contenth.hlen();
-            WritablePacket *newp = Packet::make(hdrsize, pl, s, 20);
-
-            newp=contenth.encap(newp);
-            newp=encap.encap( newp, false );	      // add XIA header
-
 			click_chatter("Found in Local cache! CID: %s, Local Address: %s\n",
 						  dstCID.unparse().c_str(),
 						  _transport->local_hid().unparse().c_str());
 			_transport->checked_output_push(1 , newp);
 		} else {
-			/* Server / Router */
-			while(cp < s) {
-				uint16_t hdrsize = encap.hdr_size()+ dummy_contenth.hlen();
-				int l= (s-cp) < (PKTSIZE - hdrsize) ? (s-cp) : (PKTSIZE - hdrsize);
-				ContentHeaderEncap  contenth(0, cp, l, s);
-				//build packet
-				WritablePacket *newp = Packet::make(hdrsize, pl + cp , l, 20 );
-				newp=contenth.encap(newp);
-				encap.set_plen(l);	// add XIA header
-				newp=encap.encap( newp, false );
-
-				click_chatter("Found in router cache! CID: %s, Local Address: %s\n",
-							  dstCID.unparse().c_str(),
-							  _transport->local_hid().unparse().c_str());
-				_transport->checked_output_push(0 , newp);
-				std::cout<<"have pushed out"<<std::endl;
-				cp += l;
-			}
+			click_chatter("Found in router cache! CID: %s, Local Address: %s\n",
+						  dstCID.unparse().c_str(),
+						  _transport->local_hid().unparse().c_str());
+			_transport->checked_output_push(0 , newp);
 		}
-        p->kill();
-    } else {
-		click_chatter("no content found\n");
-        p->kill();
+		std::cout<<"have pushed out"<<std::endl;
+
+		cp += l;
     }
 }
 
