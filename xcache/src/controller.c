@@ -149,6 +149,17 @@ static void _cleanup(void *val)
 	xfree(slice);
 }
 
+int xctrl_init(void)
+{
+	xctrl.slice_ht = ht_create(BUCKETS, _hash, _compar, _cleanup);
+	xctrl.meta_ht = xcache_new_metaht(METAHT_USE_CLEANUP);
+	xctrl.max_size = DEFAULT_XCACHE_SIZ;
+	xctrl.cur_size = 0;
+
+	return 0;
+}
+
+/** Cli commands **/
 void xctrl_cli_list_meta(void)
 {
 	ht_iter_t iter;
@@ -165,12 +176,66 @@ void xctrl_cli_list_meta(void)
 	}
 }
 
-int xctrl_init(void)
+void xctrl_export_popularity(char *filename)
 {
-	xctrl.slice_ht = ht_create(BUCKETS, _hash, _compar, _cleanup);
-	xctrl.meta_ht = xcache_new_metaht(METAHT_USE_CLEANUP);
-	xctrl.max_size = DEFAULT_XCACHE_SIZ;
-	xctrl.cur_size = 0;
+	ht_iter_t iter;
+	xcache_meta_t *meta;
+	FILE *fp = fopen(filename, "w");
 
-	return 0;
+	if(!fp) {
+		printf("Failed to open file: %s\n", filename);
+		return;
+	}
+
+	printf("Export to %s ...\n", filename);
+	ht_iter_init(&iter, xctrl.meta_ht);
+	while((meta = (xcache_meta_t *)ht_iter_data(&iter)) != NULL) {
+		char cid[512];
+
+		memset(cid, 0, 512);
+		cid2str(cid, &meta->cid);
+		fprintf(fp, "%s,%d\n", cid, meta->stats.hits);
+		ht_iter_next(&iter);
+	}
+	printf("Done.\n");
+
+	fclose(fp);
 }
+
+void xctrl_export(char **save_ptr)
+{
+	ht_iter_t iter;
+	xcache_meta_t *meta;
+	char *token = strtok_r(NULL, " \n", save_ptr);
+	char filename[512];
+	FILE *fp;
+
+	if(!token) {
+		printf("Export what?\n");
+		return;
+	}
+
+	printf("Enter filename to export to: ");
+	scanf("%s", filename);
+
+	fp = fopen(filename, "w");
+	if(!fp) {
+		printf("Failed to open file: %s\n", filename);
+		return;
+	}
+
+	printf("Export to %s ...\n", filename);
+	ht_iter_init(&iter, xctrl.meta_ht);
+	while((meta = (xcache_meta_t *)ht_iter_data(&iter)) != NULL) {
+		char cid[512];
+
+		memset(cid, 0, 512);
+		cid2str(cid, &meta->cid);
+		fprintf(fp, "%s,%d\n", cid, meta->len);
+		ht_iter_next(&iter);
+	}
+	printf("Done.\n");
+
+	fclose(fp);
+}
+

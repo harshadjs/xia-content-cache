@@ -62,6 +62,7 @@ xcache_meta_t *xcore_search(uint8_t **data, xcache_meta_t *meta)
 	return meta;
 }
 
+/** CLI Commands **/
 void xcore_list_stores(void)
 {
 	dlist_node_t *iter;

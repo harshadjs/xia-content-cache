@@ -3,8 +3,14 @@
 #include <stdlib.h>
 #include "cli.h"
 
-static void handle_cmd_list(char *token, char *command, char *save_ptr)
+static void handle_cmd_list(char **save_ptr)
 {
+	char *token = strtok_r(NULL, " \n", save_ptr);
+
+	if(!token) {
+		printf("List what?\n");
+		return;
+	}
 	if(!strcmp(token, "stores")) {
 		xcore_list_stores();
 	} else if (!strcmp(token, "policies")) {
@@ -15,6 +21,12 @@ static void handle_cmd_list(char *token, char *command, char *save_ptr)
 		printf("List supports: stores, policies, meta\n");
 	}
 }
+
+static void handle_command_export(char **save_ptr)
+{
+	xctrl_export(save_ptr);
+}
+
 
 void handle_command(char *command)
 {
@@ -27,14 +39,11 @@ void handle_command(char *command)
 	if(!strcmp(token, "help")) {
 		printf("Following are the available commands:\n");
 	} else if (!strcmp(token, "list")) {
-		token = strtok_r(NULL, " \n", &save_ptr);
-		if(!token) {
-			printf("List what?\n");
-		} else {
-			handle_cmd_list(token, command, save_ptr);
-		}
+		handle_cmd_list(&save_ptr);
 	} else if (!strcmp(token, "quit")) {
 		exit(0);
+	} else if (!strcmp(token, "export")) {
+		handle_command_export(&save_ptr);
 	} else {
 		printf("Unknown command received: %s. Type help to see available commands.\n", command);
 	}
