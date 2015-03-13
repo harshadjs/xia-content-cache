@@ -11,5 +11,6 @@ void *xrealloc(void *ptr, size_t size);
 void *xcache_zalloc(size_t size);
 void xcache_free(void *mem);
 void xcache_dump_req(xcache_req_t *req);
+void cid2str(char *str, struct click_xia_xid *cid);
 
 #endif

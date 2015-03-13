@@ -9,6 +9,7 @@ OBJS += slice.o
 OBJS += meta.o
 OBJS += logger.o
 OBJS += timer.o
+OBJS += cli.o
 
 all: $(OBJS)
 

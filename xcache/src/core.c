@@ -62,8 +62,26 @@ xcache_meta_t *xcore_search(uint8_t **data, xcache_meta_t *meta)
 	return meta;
 }
 
+void xcore_list_stores(void)
+{
+	dlist_node_t *iter;
+	struct xcache_store *store;
+
+	for(iter = stores_list, store = NULL;
+		(store = (struct xcache_store *)dlist_data(iter)) != NULL;
+		iter = dlist_next(iter)) {
+		printf("%s\n", store->name);
+		printf("\tCapacity: 0x%Lx\n", (unsigned long long)store->conf.max_size);
+		printf("\tCurrent size: 0x%Lx\n",
+			   (unsigned long long)store->conf.current_size);
+		printf("\tMaximum items: 0x%x\n", store->conf.max_items);
+		printf("\tbandwidth: %d\n", store->conf.bandwidth);
+	}
+}
+
 /* TODO: Should not directly remove, what about slices ? */
 void xcore_remove(xcache_meta_t *meta)
 {
 	meta->store->evict(meta);
 }
+

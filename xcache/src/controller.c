@@ -10,6 +10,7 @@
 #include "meta.h"
 #include "xcache_main.h"
 #include "policies.h"
+#include "cli.h"
 
 static xctrl_t xctrl;
 
@@ -73,7 +74,6 @@ xcache_meta_t *xctrl_store(xcache_req_t *req, uint8_t *data)
 	if(!meta) {
 		meta = xcache_req2meta(req);
 		ht_add(xctrl.meta_ht, meta);
-		meta->ref_count = 0;
 	}
 
 	return xslice_store(slice, meta, data);
@@ -109,10 +109,6 @@ xctrl_remove(xcache_meta_t *meta)
 {
 	xcore_remove(meta);
 	ht_remove(xctrl.meta_ht, meta);
-}
-
-void xctrl_timer(void)
-{
 }
 
 void xctrl_send_timeout(xcache_meta_t *meta)
@@ -151,6 +147,22 @@ static void _cleanup(void *val)
 		return;
 
 	xfree(slice);
+}
+
+void xctrl_cli_list_meta(void)
+{
+	ht_iter_t iter;
+	xcache_meta_t *meta;
+
+	ht_iter_init(&iter, xctrl.meta_ht);
+	while((meta = (xcache_meta_t *)ht_iter_data(&iter)) != NULL) {
+		char cid[512];
+
+		memset(cid, 0, 512);
+		cid2str(cid, &meta->cid);
+		printf("[%s]\t%d\t%d\n", cid, meta->stats.hits, ticks - meta->ticks);
+		ht_iter_next(&iter);
+	}
 }
 
 int xctrl_init(void)

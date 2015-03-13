@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "xia_cache_req.h"
+#include "cli.h"
 
 /**
  * Xcache Store Macros:
@@ -39,6 +40,10 @@ struct xcache_store;
 
 struct xcache_slice;
 
+struct meta_stats {
+	uint32_t hits;
+};
+
 /* Content object */
 typedef struct {
 	/* Content ID */
@@ -48,10 +53,7 @@ typedef struct {
 	int len;
 
 	/* Time at which this object was created */
-	uint32_t cticks;
-
-	/* Time at which this object was inserted */
-	uint32_t aticks;
+	uint32_t ticks;
 
 	/* Number of slices holding this data */
 	int ref_count;
@@ -65,6 +67,8 @@ typedef struct {
 	/* xcache store objects */
 	void *store_priv;
 
+	struct meta_stats stats;
+
 	void *policy_priv;
 } xcache_meta_t;
 
@@ -77,6 +81,7 @@ typedef struct {
 
 struct xcache_store_conf {
 	uint64_t max_size;		/* in bytes */
+	uint64_t current_size;	/* in bytes */
 	uint32_t max_items; 	/* */
 	uint32_t bandwidth; 	/* in bps */
 };

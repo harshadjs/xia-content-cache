@@ -42,9 +42,12 @@ xcache_meta_t *xcache_req2meta(xcache_req_t *req)
 	xcache_meta_t *meta;
 
 	meta = (xcache_meta_t *)xalloc(sizeof(xcache_meta_t));
+	memset(meta, 0, sizeof(xcache_meta_t));
 	meta->len = req->len;
 	meta->cid = req->cid;
-	meta->cticks = meta->aticks = ticks;
+	meta->ticks = ticks;
+	meta->slices = NULL;
+	meta->ref_count = 0;
 
 	return meta;
 }

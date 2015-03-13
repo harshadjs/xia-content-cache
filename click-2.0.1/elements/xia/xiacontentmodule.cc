@@ -127,6 +127,7 @@ void XIAContentModule::search_external_cache(Packet *p, const XID &CID)
 	click_chatter("My HID: %s\n", _transport->local_hid().unparse().c_str());
 	req.request = XCACHE_SEARCH;
 	req.len = 0;
+
 	ch_to_context(&req.context, ch);
 	req.cid = CID.xid();
 

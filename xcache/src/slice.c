@@ -74,8 +74,6 @@ xslice_remove_meta(xcache_slice_t *slice, xcache_meta_t *meta)
 	slice->policy->remove(slice, meta);
 
 	slice->cur_size -= meta->len;
-	if(meta->ref_count == 0)
-		xctrl_remove(meta);
 
 	for(i = 0; i < meta->ref_count - 1; i++) {
 		if(meta->slices[i] == slice)
@@ -87,7 +85,14 @@ xslice_remove_meta(xcache_slice_t *slice, xcache_meta_t *meta)
 	}
 
 	meta->ref_count--;
-	meta->slices = xrealloc(meta->slices, meta->ref_count);
+	if(meta->ref_count == 0) {
+		xfree(meta->slices);
+	} else {
+		meta->slices = xrealloc(meta->slices, meta->ref_count);
+	}
+
+	if(meta->ref_count == 0)
+		xctrl_remove(meta);
 }
 
 void xslice_flush(void *data)
@@ -100,6 +105,7 @@ void xslice_flush(void *data)
 	ht_iter_init(&iter, slice->meta_ht);
 	while((meta = (xcache_meta_t *)ht_iter_data(&iter)) != NULL) {
 		xslice_remove_meta(slice, meta);
+		ht_iter_next(&iter);
 	}
 
 	xctrl_remove_slice(slice);

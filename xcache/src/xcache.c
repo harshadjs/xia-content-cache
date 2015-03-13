@@ -12,6 +12,7 @@
 #include "xcache_main.h"
 #include "xia_cache_req.h"
 #include "logger.h"
+#include "cli.h"
 #include "timer.h"
 
 /* Global time counter: incremented every second */
@@ -37,8 +38,6 @@ xcache_fragment_and_send(xcache_meta_t *meta,
 	xcache_req_t *response = (xcache_req_t *)packet;
 
 #define MIN(__a, __b) (((__a) < (__b)) ? (__a) : (__b))
-
-	printf("%s: Meta->len = %d\n", __func__, meta->len);
 
 	payload = packet;
 	payload += sizeof(xcache_req_t);
@@ -73,6 +72,7 @@ static void xcache_inbound_udp(void)
 	} else if(req->request == XCACHE_SEARCH) {
 		meta = xctrl_search(&data, req);
 		if(meta) {
+			meta->stats.hits++;
 			log(LOG_INFO, "Found.\n");
 			xcache_fragment_and_send(meta, data);
 			xfree(data);
@@ -88,7 +88,7 @@ static void xcache_set_timeout(struct timeval *t)
 	t->tv_usec = 0;
 }
 
-static void xcache_creat_sock(void)
+static void xcache_creat_sock(int port)
 {
 	struct sockaddr_in si_me;
 
@@ -97,29 +97,50 @@ static void xcache_creat_sock(void)
 
     memset((char *)&si_me, 0, sizeof(si_me));
     si_me.sin_family = AF_INET;
-    si_me.sin_port = htons(XCACHE_UDP_PORT);
+    si_me.sin_port = htons(port);
     si_me.sin_addr.s_addr = htonl(INADDR_ANY);
     if (bind(s, (struct sockaddr *)&si_me, sizeof(si_me)) == -1)
 		return;
 }
 
-static int xcache_main_loop(void)
+#define MAX(__a, __b) (((__a) > (__b)) ? (__a) : (__b))
+
+static int xcache_main_loop(int port)
 {
-    int n;
+    int n, max;
 	fd_set fds;
 	struct timeval timeout;
+	char command[512];
+	int command_received = 1;
 
 	ticks = 1;
-	xcache_creat_sock();
+	xcache_creat_sock(port);
 
 	FD_ZERO(&fds);
 	xcache_set_timeout(&timeout);
+
 	while(1) {
 		FD_SET(s, &fds);
-		n = select(s + 1, &fds, NULL, NULL, &timeout);
+		FD_SET(fileno(stdin), &fds);
+		max = MAX(s, fileno(stdin));
+
+		if(command_received == 1) {
+			/* Display prompt */
+			fprintf(stderr, "xcache > ");
+			command_received = 0;
+		}
+
+		n = select(max + 1, &fds, NULL, NULL, &timeout);
+		command_received = 0;
 
 		if(FD_ISSET(s, &fds)) {
 			xcache_inbound_udp();
+		}
+
+		if(FD_ISSET(fileno(stdin), &fds)) {
+			fgets(command, 512, stdin);
+			command_received = 1;
+			handle_command(command);
 		}
 
 		if((n == 0) && (timeout.tv_sec == 0) && (timeout.tv_usec == 0)) {
@@ -129,7 +150,6 @@ static int xcache_main_loop(void)
 				xcache_handle_timeout();
 			}
 			xcache_set_timeout(&timeout);
-			xctrl_timer();
 		}
 	}
 
@@ -140,5 +160,6 @@ int main(int argc, char *argv[])
 {
 	set_log_level(LOG_INFO);
 	xctrl_init();
-	return xcache_main_loop();
+
+	return xcache_main_loop(XCACHE_UDP_PORT);
 }
