@@ -1,37 +1,45 @@
 #ifndef __XCACHE_SLICE_H__
 #define __XCACHE_SLICE_H__
 
+#include <map>
+#include "../clicknet/xid.h"
+#include "policy.h"
 #include <stdint.h>
-#include "hash_table.h"
 
-struct xcache_policy;
+class XcacheMeta;
+class XcachePolicy;
 
-typedef struct xcache_slice {
-	ht_t *meta_ht;
-	uint32_t max_size;
-	uint32_t cur_size;
+class XcacheSlice {
+private:
+  std::map<xid_t, XcacheMeta *> metaMap;
+  uint64_t maxSize, currentSize;
+  uint32_t contextID;
 
-	/* Context / Slice identifier */
-	uint32_t context_id;
+  uint64_t ttl;
+  XcachePolicy policy;
 
-	/* Time to live for this slice */
-	uint32_t ttl;
+public:
+  XcacheSlice();
 
-	struct xcache_policy *policy;
-	/*
-	 * Note: Recommeded to access using SET/GET_POLICY_PRIV macro.
-	 * See xcache.h
-	 */
-	void *policy_priv;
-} xcache_slice_t;
+  void setPolicy(XcachePolicy);
 
-#include "policies.h"
-#include "xcache.h"
+  void addMeta(XcacheMeta *);
 
-xcache_meta_t *
-xslice_store(xcache_slice_t *slice, xcache_meta_t *meta, uint8_t *data);
-xcache_meta_t *
-xslice_search(uint8_t **data, xcache_slice_t *slice, xcache_req_t *req);
-void xslice_flush(void *data);
-int xslice_init(xcache_slice_t *slice);
+  void store(XcacheMeta *, XcacheData);
+
+  void search(XcacheData /*, request */);
+
+  void removeMeta(XcacheMeta *);
+
+  void flush(XcacheData);
+
+  void makeRoom(XcacheMeta *);
+
+  uint32_t getContextID(void) {
+    return contextID;
+  };
+
+  bool hasRoom(XcacheMeta *);
+};
+
 #endif

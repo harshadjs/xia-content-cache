@@ -1,6 +1,5 @@
-OBJS = dlist.o
-OBJS += xcache.o
-OBJS += hash_table.o
+CC=g++
+OBJS = xcache.o
 OBJS += controller.o
 OBJS += core.o
 OBJS += helpers.o
@@ -13,7 +12,7 @@ OBJS += cli.o
 
 all: $(OBJS)
 
-%.o: %.c
+%.o: %.cc
 	$(CC) $(CFLAGS) -o $@ -c $^ $(LDFLAGS)
 
 

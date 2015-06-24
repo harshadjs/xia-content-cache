@@ -1,38 +1,40 @@
 #ifndef __XCACHE_CONTROLLER_H__
 #define __XCACHE_CONTROLLER_H__
-#include "xcache.h"
-#include "slice.h"
+#include <map>
+#include <iostream>
+#include "meta.h"
 
-typedef struct {
-	ht_t *meta_ht;
-	ht_t *slice_ht;
-	uint64_t max_size;
-	uint64_t cur_size;
-} xctrl_t;
+class XcacheController {
+private:
+  std::map<std::string, XcacheMeta> metaMap;
+  std::map<uint32_t, XcacheMeta> sliceMap;
 
-/** Xcache controller APIs
- ** ----------------------
- ** Following are the APIs provided by this layer.
- ** This is the thinnest layer. In future, if this code moves to kernel,
- ** this layer will go away.
- **/
+public:
+  XcacheController() {
+    std::cout << "Reached Constructor\n";
+  }
 
-/* DONE Store data in cache slice corresponding to  @req */
-xcache_meta_t *xctrl_store(xcache_req_t *req, uint8_t *data);
+  void addMeta(std::string str, XcacheMeta *meta) {
+    std::cout << "Reached AddMeta\n";
+    metaMap[str] = *meta;
+  }
 
-xcache_meta_t *xctrl_search(uint8_t **data, xcache_req_t *req);
+  void searchMeta(std::string str) {
+    std::map<std::string, XcacheMeta>::iterator i = metaMap.find(str);
 
-/* DONE Timer routine: Must be called once every timeout*/
-void xctrl_timer(void);
+    std::cout << "Reached SearchMeta\n";
+    if(i != metaMap.end()) {
+      i->second.print();
+    } else {
+      std::cout << "Not Found\n";
+    }
+  }
 
-/* DONE Init function for this layer: Initializes hash table */
-int xctrl_init(void);
+  void handleCli(void);
+  void run(void);
 
-/* DONE Remove */
-void xctrl_remove(xcache_meta_t *meta);
-
-/* DONE Send timeout (Change name) */
-void xctrl_send_timeout(xcache_meta_t *meta);
-
-void xctrl_remove_slice(xcache_slice_t *slice);
+  void search(void);
+  void store(void);
+  void remove(void);
+};
 #endif
