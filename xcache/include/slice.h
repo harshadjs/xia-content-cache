@@ -1,6 +1,7 @@
 #ifndef __XCACHE_SLICE_H__
 #define __XCACHE_SLICE_H__
 
+#include <iostream>
 #include <map>
 #include "../clicknet/xid.h"
 #include "policy.h"
@@ -11,31 +12,31 @@ class XcachePolicy;
 
 class XcacheSlice {
 private:
-  std::map<xid_t, XcacheMeta *> metaMap;
+  std::map<std::string, XcacheMeta *> metaMap;
   uint64_t maxSize, currentSize;
-  uint32_t contextID;
+  int32_t contextID;
 
   uint64_t ttl;
   XcachePolicy policy;
 
 public:
-  XcacheSlice();
+  XcacheSlice(int32_t contextID);
 
   void setPolicy(XcachePolicy);
 
   void addMeta(XcacheMeta *);
 
-  void store(XcacheMeta *, XcacheData);
+  int store(XcacheMeta *, std::string);
 
-  void search(XcacheData /*, request */);
+  void search(XcacheMeta /*, request */);
 
   void removeMeta(XcacheMeta *);
 
-  void flush(XcacheData);
+  void flush(XcacheMeta *);
 
   void makeRoom(XcacheMeta *);
 
-  uint32_t getContextID(void) {
+  int32_t getContextID(void) {
     return contextID;
   };
 

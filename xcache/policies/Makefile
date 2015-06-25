@@ -1,7 +1,0 @@
-OBJS=main.o fifo.o
-all: $(OBJS)
-%.o: %.c
-	$(CC) $(CFLAGS) -o $@ -c $^ $(LDFLAGS)
-
-clean:
-	rm -f $(OBJS)

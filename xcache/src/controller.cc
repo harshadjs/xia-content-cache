@@ -1,3 +1,5 @@
+#include <fcntl.h>
+#include <string>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -8,7 +10,6 @@
 #include <errno.h>
 #include "controller.h"
 #include <iostream>
-#include "xcache_cmd.pb.h"
 
 static int xcache_creat_sock(int port)
 {
@@ -52,9 +53,95 @@ void XcacheController::handleCli(void)
   }
 }
 
-void XcacheController::store(XcacheCommand *cmd)
+
+void XcacheController::handleUdp(int s)
 {
-  
+  char buf[500];
+  XcacheCommand cmd;
+  int ret;
+
+  /* TODO: Handle big packets */
+  ret = recvfrom(s, buf, 500, MSG_DONTWAIT, NULL, 0);
+
+  bool parseSuccess = cmd.ParseFromArray(buf, ret);
+  if(!parseSuccess) {
+    std::cout << "[ERROR] Protobuf could not parse\n;";
+    return;
+  }
+
+  if(cmd.cmd() == XcacheCommand::XCACHE_STORE) {
+    ret = store(&cmd);
+  } else if(cmd.cmd() == XcacheCommand::XCACHE_NEWSLICE) {
+    ret = newSlice(&cmd);
+  } else if(cmd.cmd() == XcacheCommand::XCACHE_SEARCH) {
+    XcacheCommand response = search(&cmd);
+  }
+
+}
+
+
+XcacheSlice *XcacheController::lookupSlice(XcacheCommand *cmd)
+{
+  std::map<int32_t, XcacheSlice *>::iterator i = sliceMap.find(cmd->contextid());
+
+  if(i != sliceMap.end()) {
+    std::cout << "[Success] Slice Exists.\n";
+    return i->second;
+  } else {
+    /* TODO use default slice */
+    std::cout << "Slice does not exist. Falling back to default slice.\n";
+    return NULL;
+  }
+}
+
+int XcacheController::newSlice(XcacheCommand *cmd)
+{
+  /* TODO: Check if the slice already exists */
+  XcacheSlice *slice;
+
+  slice = new XcacheSlice(cmd->contextid());
+  /* TODO: Set slice config */
+
+  sliceMap[cmd->contextid()] = slice;
+  std::cout << "New Slice." << std::endl;
+  return 0;
+}
+
+int XcacheController::store(XcacheCommand *cmd)
+{
+  XcacheSlice *slice;
+  XcacheMeta *meta;
+  std::map<std::string, XcacheMeta *>::iterator i = metaMap.find(cmd->cid());
+
+  std::cout << "Reached " << __func__ << std::endl;
+
+  if(i != metaMap.end()) {
+    meta = i->second;
+    std::cout << "Meta Exsits." << std::endl;
+  } else {
+    /* New object - Allocate a meta */
+    meta = new XcacheMeta(cmd);
+    metaMap[cmd->cid()] = meta;
+    std::cout << "New Meta." << std::endl;
+  }
+
+  slice = lookupSlice(cmd);
+  if(!slice)
+    return -1;
+
+  if(slice->store(meta, cmd->data()) < 0) {
+    std::cout << "Slice store failed\n";
+    return -1;
+  }
+
+  return storeManager.store(meta, cmd->data());
+}
+
+XcacheCommand XcacheController::search(XcacheCommand *cmd)
+{
+  XcacheCommand response;
+  std::cout << "Search Request\n";
+  return response;
 }
 
 void XcacheController::run(void)
@@ -86,6 +173,8 @@ void XcacheController::run(void)
 
     if(FD_ISSET(s, &fds)) {
       std::cout << "Action on UDP" << std::endl;
+      handleUdp(s);
+      command_received = 1;
     }
 
     if(FD_ISSET(fileno(stdin), &fds)) {

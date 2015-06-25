@@ -4,7 +4,13 @@
 #include "meta.h"
 #include "data.h"
 
-class FifoPolicy;
+/**
+ * XcachePolicy:
+ * @brief Abstract class that defines a eviction policy
+ * Xcache eviction policy decides which content object to evict. The policy module
+ * does not need to care about actually storing the data. It only deals in terms of
+ * "meta"data.
+ */
 
 class XcachePolicy  {
 public:
@@ -21,5 +27,11 @@ public:
     return NULL;
   };
 };
+
+/**
+ * All the policies are implemented in header files. The corresponding header files
+ * must be included here.
+ */
+#include "policies/fifo.h"
 
 #endif /* __POLICY_H__ */

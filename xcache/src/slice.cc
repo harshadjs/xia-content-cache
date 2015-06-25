@@ -1,14 +1,20 @@
 #include "slice.h"
 #include "meta.h"
 #include "data.h"
-#include "fifo.h"
+#include "policy.h"
 
-XcacheSlice::XcacheSlice() {
+XcacheSlice::XcacheSlice(int32_t contextID)
+{
+  /* TODO: Policy is always FIFO */
   FifoPolicy fifo;
 
-  maxSize = currentSize = contextID = ttl = 0;
+  maxSize = currentSize = ttl = 0;
   policy = fifo;
+
+  this->contextID = contextID;
+
 }
+
 void XcacheSlice::addMeta(XcacheMeta *meta)
 {
   metaMap[meta->getCid()] = meta;
@@ -23,7 +29,7 @@ bool XcacheSlice::hasRoom(XcacheMeta *meta)
 
 void XcacheSlice::removeMeta(XcacheMeta *meta)
 {
-  std::map<xid_t, XcacheMeta *>::iterator iter;
+  std::map<std::string, XcacheMeta *>::iterator iter;
 
   iter = metaMap.find(meta->getCid());
   metaMap.erase(iter);
@@ -37,13 +43,11 @@ void XcacheSlice::makeRoom(XcacheMeta *meta)
   }
 }
 
-void XcacheSlice::store(XcacheMeta *meta, XcacheData data)
+int XcacheSlice::store(XcacheMeta *meta, std::string data)
 {
   makeRoom(meta);
   addMeta(meta);
-  policy.store(meta);
-
-  //  return xcore_store(meta, data);
+  return policy.store(meta);
 }
 
 void XcacheSlice::setPolicy(XcachePolicy policy)

@@ -2,11 +2,13 @@
 #define __META_H__
 
 #include "../clicknet/xid.h"
+#include <iostream>
 #include <map>
 #include <iostream>
 #include <stdint.h>
 #include "data.h"
 #include "store.h"
+#include "xcache_cmd.pb.h"
 
 class XcacheSlice;
 
@@ -17,7 +19,7 @@ private:
   /* This map stores all the slices that this meta is a part of */
   std::map<uint32_t, XcacheSlice *> sliceMap;
   XcacheContentStore *store;
-  xid_t cid;
+  std::string cid;
 
   void ref(void) {
     refCount++;
@@ -27,10 +29,8 @@ private:
   }
 
 public:
-  XcacheMeta() {
-    refCount = len = 0;
-    store = NULL;
-  }
+  XcacheMeta();
+  XcacheMeta(XcacheCommand *);
   void setStore(XcacheContentStore *s) {
     store = s;
   }
@@ -58,7 +58,7 @@ public:
     std::cout << std::endl;
   }
 
-  xid_t getCid() {
+  std::string getCid() {
     return cid;
   }
 };
