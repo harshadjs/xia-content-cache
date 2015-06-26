@@ -5,13 +5,17 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include "controller.h"
 #include <iostream>
 
-static int xcache_creat_sock(int port)
+#define UNIX_SERVER_SOCKET "/tmp/xcache.socket"
+
+
+static int xcache_create_click_socket(int port)
 {
 	struct sockaddr_in si_me;
     int s;
@@ -27,6 +31,22 @@ static int xcache_creat_sock(int port)
 		return -1;
 
     return s;
+}
+
+static int xcache_create_lib_socket(void)
+{
+  struct sockaddr_un my_addr;
+  int s;
+
+  s = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+
+  my_addr.sun_family = AF_UNIX;
+  strcpy(my_addr.sun_path, UNIX_SERVER_SOCKET);
+
+  bind(s, (struct sockaddr *)&my_addr, sizeof(my_addr));
+  listen(s, 100);
+
+  return s;
 }
 
 static void xcache_set_timeout(struct timeval *t)
@@ -54,29 +74,36 @@ void XcacheController::handleCli(void)
 }
 
 
+void XcacheController::status(void)
+{
+  std::map<int32_t, XcacheSlice *>::iterator i;
+
+  std::cout << "[Status]\n";
+  for(i = sliceMap.begin(); i != sliceMap.end(); ++i) {
+    i->second->status();
+  }
+}
+
+
 void XcacheController::handleUdp(int s)
 {
-  char buf[500];
-  XcacheCommand cmd;
+}
+
+void XcacheController::handleCmd(XcacheCommand *cmd)
+{
   int ret;
 
-  /* TODO: Handle big packets */
-  ret = recvfrom(s, buf, 500, MSG_DONTWAIT, NULL, 0);
-
-  bool parseSuccess = cmd.ParseFromArray(buf, ret);
-  if(!parseSuccess) {
-    std::cout << "[ERROR] Protobuf could not parse\n;";
-    return;
+  if(cmd->cmd() == XcacheCommand::XCACHE_STORE) {
+    ret = store(cmd);
+  } else if(cmd->cmd() == XcacheCommand::XCACHE_NEWSLICE) {
+    ret = newSlice(cmd);
+  } else if(cmd->cmd() == XcacheCommand::XCACHE_SEARCH) {
+    XcacheCommand response = search(cmd);
+  } else if(cmd->cmd() == XcacheCommand::XCACHE_STATUS) {
+    status();
   }
 
-  if(cmd.cmd() == XcacheCommand::XCACHE_STORE) {
-    ret = store(&cmd);
-  } else if(cmd.cmd() == XcacheCommand::XCACHE_NEWSLICE) {
-    ret = newSlice(&cmd);
-  } else if(cmd.cmd() == XcacheCommand::XCACHE_SEARCH) {
-    XcacheCommand response = search(&cmd);
-  }
-
+  ret = ret;
 }
 
 
@@ -96,8 +123,12 @@ XcacheSlice *XcacheController::lookupSlice(XcacheCommand *cmd)
 
 int XcacheController::newSlice(XcacheCommand *cmd)
 {
-  /* TODO: Check if the slice already exists */
   XcacheSlice *slice;
+
+  if(lookupSlice(cmd)) {
+    /* Slice already exists */
+    return -1;
+  }
 
   slice = new XcacheSlice(cmd->contextid());
   /* TODO: Set slice config */
@@ -140,47 +171,92 @@ int XcacheController::store(XcacheCommand *cmd)
 XcacheCommand XcacheController::search(XcacheCommand *cmd)
 {
   XcacheCommand response;
+  XcacheSlice *slice;
+
   std::cout << "Search Request\n";
+  slice = lookupSlice(cmd);
+  if(!slice) {
+    response.set_cmd(XcacheCommand::XCACHE_ERROR);
+  } else {
+    response.set_cmd(XcacheCommand::XCACHE_RESPONSE);
+    response.set_data(slice->search(cmd));
+  }
   return response;
 }
 
 void XcacheController::run(void)
 {
-  fd_set fds;
+  fd_set fds, allfds;
   struct timeval timeout;
-  int max, s, n, command_received = 1;
+  int max, libsocket, s, n;
+  std::vector<int> activeConnections;
+  std::vector<int>::iterator iter;
 
-  //  ticks = 1;
-  s = xcache_creat_sock(1444);
+  s = xcache_create_click_socket(1444);
+  libsocket = xcache_create_lib_socket();
 
   FD_ZERO(&fds);
+  FD_SET(s, &allfds);
+  FD_SET(libsocket, &allfds);
+#define MAX(_a, _b) ((_a > _b) ? (_a) : (_b))
+
   xcache_set_timeout(&timeout);
 
   while(1) {
-    FD_SET(s, &fds);
-    FD_SET(fileno(stdin), &fds);
-#define MAX(_a, _b) ((_a > _b) ? (_a) : (_b))
-    max = MAX(s, fileno(stdin));
+    memcpy(&fds, &allfds, sizeof(fd_set));
 
-    if(command_received == 1) {
-      /* Display prompt */
-      fprintf(stderr, "xcache > ");
-      command_received = 0;
+    max = MAX(libsocket, s);
+    for(iter = activeConnections.begin(); iter != activeConnections.end(); ++iter) {
+      max = MAX(max, *iter);
     }
 
     n = select(max + 1, &fds, NULL, NULL, &timeout);
-    command_received = 0;
 
     if(FD_ISSET(s, &fds)) {
       std::cout << "Action on UDP" << std::endl;
       handleUdp(s);
-      command_received = 1;
     }
 
-    if(FD_ISSET(fileno(stdin), &fds)) {
-      std::cout << "Action on stdin" << std::endl;
-      handleCli();
-      command_received = 1;
+    if(FD_ISSET(libsocket, &fds)) {
+      int new_connection = accept(libsocket, NULL, 0);
+      std::cout << "Action on libsocket" << std::endl;
+      activeConnections.push_back(new_connection);
+      FD_SET(new_connection, &allfds);
+    }
+
+    for(iter = activeConnections.begin(); iter != activeConnections.end();) {
+      if(FD_ISSET(*iter, &fds)) {
+        char buf[512] = "";
+        std::string buffer;
+        XcacheCommand cmd;
+        int ret;
+
+        do {
+          ret = read(*iter, buf, 512);
+          if(ret == 0)
+            break;
+
+          buffer.append(buf);
+        } while(ret == 512);
+
+        if(ret != 0) {
+          bool parseSuccess = cmd.ParseFromString(buffer);
+          if(!parseSuccess) {
+            std::cout << "[ERROR] Protobuf could not parse\n;";
+          } else {
+            handleCmd(&cmd);
+          }
+        }
+
+        if(ret == 0) {
+          std::cout << "Closing\n";
+          close(*iter);
+          FD_CLR(*iter, &allfds);
+          activeConnections.erase(iter);
+          continue;
+        }
+      }
+      ++iter;
     }
 
     if((n == 0) && (timeout.tv_sec == 0) && (timeout.tv_usec == 0)) {

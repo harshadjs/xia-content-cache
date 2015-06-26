@@ -2,7 +2,6 @@
 #define __POLICY_H__
 
 #include "meta.h"
-#include "data.h"
 
 /**
  * XcachePolicy:

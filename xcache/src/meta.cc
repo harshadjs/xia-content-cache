@@ -14,6 +14,12 @@ XcacheMeta::XcacheMeta()
   store = NULL;
 }
 
+void XcacheMeta::status(void)
+{
+  std::cout << "[" << cid << "] ref = " << refCount << "\n";
+  std::cout << "\tDATA: [" << store->get(this) << "]\n";
+}
+
 void XcacheMeta::addedToSlice(XcacheSlice *slice)
 {
   ref();

@@ -9,6 +9,7 @@ message XcacheCommand {
 	XCACHE_CLEAR = 4;
 	XCACHE_RESPONSE = 5;
 	XCACHE_ERROR = 6;
+	XCACHE_STATUS = 7;
   };
   required requestType cmd = 1;
 

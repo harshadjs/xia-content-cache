@@ -28,13 +28,17 @@ public:
 
   int store(XcacheMeta *, std::string);
 
-  void search(XcacheMeta /*, request */);
+  std::string search(XcacheCommand *);
 
   void removeMeta(XcacheMeta *);
 
   void flush(XcacheMeta *);
 
   void makeRoom(XcacheMeta *);
+
+  void status(void);
+
+  bool alreadyHasMeta(XcacheMeta *);
 
   int32_t getContextID(void) {
     return contextID;

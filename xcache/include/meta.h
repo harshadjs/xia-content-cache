@@ -6,7 +6,6 @@
 #include <map>
 #include <iostream>
 #include <stdint.h>
-#include "data.h"
 #include "store.h"
 #include "xcache_cmd.pb.h"
 
@@ -41,6 +40,12 @@ public:
   void setLength(uint64_t length) {
     this->len = length;
   }
+
+  std::string get(void) {
+    return store->get(this);
+  }
+
+  void status(void);
 
   uint64_t getLength() {
     return len;

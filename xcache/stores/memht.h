@@ -1,6 +1,7 @@
 #ifndef __MEMHT_H__
 #define __MEMHT_H__
 
+#include <map>
 #include "store.h"
 
 /**
@@ -10,6 +11,9 @@
  */
 
 class MemHt:public XcacheContentStore {
+private:
+  std::map<XcacheMeta *, std::string> memht;
+
 public:
   MemHt()
   {
@@ -18,12 +22,15 @@ public:
   int store(XcacheMeta *meta, std::string data)
   {
     std::cout << "Reached MemHt::" << __func__ << "\n";
+    memht[meta] = data;
+
     return 0;
   }
 
-  XcacheMeta *get(std::string *&data)
+  std::string get(XcacheMeta *meta)
   {
-    return NULL;
+    std::cout << "Memht get\n";
+    return memht[meta];
   }
 
   void print(void)

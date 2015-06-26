@@ -47,6 +47,8 @@ public:
 
   void handleCli(void);
   void handleUdp(int);
+  void handleCmd(XcacheCommand *);
+  void status(void);
   void run(void);
 
   XcacheCommand search(XcacheCommand *);
