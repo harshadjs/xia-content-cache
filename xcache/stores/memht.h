@@ -21,7 +21,7 @@ public:
 
   int store(XcacheMeta *meta, std::string data)
   {
-    std::cout << "Reached MemHt::" << __func__ << "\n";
+    std::cout << "Reached MemHt::" << __func__ << " Storing " << data << "\n";
     memht[meta] = data;
 
     return 0;

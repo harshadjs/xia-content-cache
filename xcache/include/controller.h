@@ -20,7 +20,8 @@ class XcacheController {
 private:
   std::map<std::string, XcacheMeta *> metaMap;
   std::map<int32_t, XcacheSlice *> sliceMap;
-  int newSlice(XcacheCommand *);
+
+  int newSlice(XcacheCommand *, XcacheCommand *);
   XcacheSlice *lookupSlice(XcacheCommand *);
   XcacheStoreManager storeManager;
 
@@ -47,11 +48,11 @@ public:
 
   void handleCli(void);
   void handleUdp(int);
-  void handleCmd(XcacheCommand *);
+  int handleCmd(XcacheCommand *, XcacheCommand *);
   void status(void);
   void run(void);
 
-  XcacheCommand search(XcacheCommand *);
+  int search(XcacheCommand *, XcacheCommand *);
   int store(XcacheCommand *);
   int storeFinish(XcacheMeta *, std::string);
   void remove(void);

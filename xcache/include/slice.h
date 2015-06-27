@@ -22,6 +22,15 @@ private:
 public:
   XcacheSlice(int32_t contextID);
 
+  void setTtl(uint32_t ttl) {
+    this->ttl = ttl;
+  }
+
+  void setSize(uint64_t size) {
+    this->maxSize = size;
+  }
+
+
   void setPolicy(XcachePolicy);
 
   void addMeta(XcacheMeta *);
@@ -40,7 +49,7 @@ public:
 
   bool alreadyHasMeta(XcacheMeta *);
 
-  int32_t getContextID(void) {
+  int32_t getContextId(void) {
     return contextID;
   };
 

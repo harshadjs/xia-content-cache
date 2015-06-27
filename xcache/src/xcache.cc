@@ -7,10 +7,6 @@ int main(void)
   XcacheController ctrl;
   XcacheMeta meta;
 
-  std::cout << "Reached main" << std::endl;
-  ctrl.addMeta("Index", &meta);
-  ctrl.searchMeta("Index");
-  ctrl.searchMeta("Index10");
   ctrl.run();
   return 0;
 }

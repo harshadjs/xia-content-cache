@@ -23,7 +23,7 @@ void XcacheMeta::status(void)
 void XcacheMeta::addedToSlice(XcacheSlice *slice)
 {
   ref();
-  sliceMap[slice->getContextID()] = slice;
+  sliceMap[slice->getContextId()] = slice;
 }
 
 void XcacheMeta::removedFromSlice(XcacheSlice *slice)

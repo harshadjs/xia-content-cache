@@ -12,8 +12,13 @@
 #include "controller.h"
 #include <iostream>
 
+#define OK_SEND_RESPONSE 1
+#define OK_NO_RESPONSE 0
+#define BAD -1
+
 #define UNIX_SERVER_SOCKET "/tmp/xcache.socket"
 
+static int context_id = 0;
 
 static int xcache_create_click_socket(int port)
 {
@@ -89,21 +94,26 @@ void XcacheController::handleUdp(int s)
 {
 }
 
-void XcacheController::handleCmd(XcacheCommand *cmd)
+int XcacheController::handleCmd(XcacheCommand *resp, XcacheCommand *cmd)
 {
-  int ret;
+  int ret = OK_NO_RESPONSE;
+  XcacheCommand response;
 
   if(cmd->cmd() == XcacheCommand::XCACHE_STORE) {
+    std::cout << "Received STORE command \n";
     ret = store(cmd);
   } else if(cmd->cmd() == XcacheCommand::XCACHE_NEWSLICE) {
-    ret = newSlice(cmd);
-  } else if(cmd->cmd() == XcacheCommand::XCACHE_SEARCH) {
-    XcacheCommand response = search(cmd);
+    std::cout << "Received NEWSLICE command \n";
+    ret = newSlice(resp, cmd);
+  } else if(cmd->cmd() == XcacheCommand::XCACHE_GETCHUNK) {
+    std::cout << "Received GETCHUNK command \n";
+    ret = search(resp, cmd);
   } else if(cmd->cmd() == XcacheCommand::XCACHE_STATUS) {
+    std::cout << "Received STATUS command \n";
     status();
   }
 
-  ret = ret;
+  return ret;
 }
 
 
@@ -121,7 +131,8 @@ XcacheSlice *XcacheController::lookupSlice(XcacheCommand *cmd)
   }
 }
 
-int XcacheController::newSlice(XcacheCommand *cmd)
+
+int XcacheController::newSlice(XcacheCommand *resp, XcacheCommand *cmd)
 {
   XcacheSlice *slice;
 
@@ -130,12 +141,17 @@ int XcacheController::newSlice(XcacheCommand *cmd)
     return -1;
   }
 
-  slice = new XcacheSlice(cmd->contextid());
-  /* TODO: Set slice config */
+  slice = new XcacheSlice(++context_id);
 
-  sliceMap[cmd->contextid()] = slice;
-  std::cout << "New Slice." << std::endl;
-  return 0;
+  //  slice->setPolicy(cmd->cachepolicy());
+  slice->setTtl(cmd->ttl());
+  slice->setSize(cmd->cachesize());
+
+  sliceMap[slice->getContextId()] = slice;
+  resp->set_cmd(XcacheCommand::XCACHE_RESPONSE);
+  resp->set_contextid(slice->getContextId());
+
+  return OK_SEND_RESPONSE;
 }
 
 int XcacheController::store(XcacheCommand *cmd)
@@ -168,20 +184,22 @@ int XcacheController::store(XcacheCommand *cmd)
   return storeManager.store(meta, cmd->data());
 }
 
-XcacheCommand XcacheController::search(XcacheCommand *cmd)
+int XcacheController::search(XcacheCommand *resp, XcacheCommand *cmd)
 {
-  XcacheCommand response;
   XcacheSlice *slice;
 
   std::cout << "Search Request\n";
   slice = lookupSlice(cmd);
   if(!slice) {
-    response.set_cmd(XcacheCommand::XCACHE_ERROR);
+    resp->set_cmd(XcacheCommand::XCACHE_ERROR);
   } else {
-    response.set_cmd(XcacheCommand::XCACHE_RESPONSE);
-    response.set_data(slice->search(cmd));
+    std::string data = slice->search(cmd);
+
+    resp->set_cmd(XcacheCommand::XCACHE_RESPONSE);
+    resp->set_data(data);
+    std::cout << "Looked up Data = " << data << "\n";
   }
-  return response;
+  return OK_SEND_RESPONSE;
 }
 
 void XcacheController::run(void)
@@ -228,7 +246,7 @@ void XcacheController::run(void)
       if(FD_ISSET(*iter, &fds)) {
         char buf[512] = "";
         std::string buffer;
-        XcacheCommand cmd;
+        XcacheCommand resp, cmd;
         int ret;
 
         do {
@@ -244,7 +262,10 @@ void XcacheController::run(void)
           if(!parseSuccess) {
             std::cout << "[ERROR] Protobuf could not parse\n;";
           } else {
-            handleCmd(&cmd);
+            if(handleCmd(&resp, &cmd) == OK_SEND_RESPONSE) {
+              resp.SerializeToString(&buffer);
+              write(*iter, buffer.c_str(), buffer.length());
+            }
           }
         }
 
