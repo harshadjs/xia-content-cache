@@ -5,19 +5,25 @@ CFLAGS=-g -I$(CLICKDIR)/include/click -I$(XCACHEDIR)/include -I$(XCACHEDIR)/bin 
 LDFLAGS=
 export ## Make variables available to subsequent makefiles
 
-TARGETS=proto src
+TARGETS=proto src api
 
 .PHONY: $(TARGETS) bin
 
 all: bin
 $(TARGETS):
 	make -C $@
-	mv $@/*.o bin/
+	for f in  $@/*.o; do \
+		if [ -e $$f ]; then \
+			mv -f $@/*.o bin/; \
+			break; \
+		fi; \
+	done
 
 bin: $(TARGETS)
 	make -C $@
 
 clean:
-	make -C src clean
+	for dir in ${TARGETS}; do \
+		make -C $$dir clean;	\
+	done
 	make -C bin clean
-	make -C proto clean

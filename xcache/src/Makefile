@@ -6,7 +6,6 @@ OBJS += helpers.o
 OBJS += api.o
 OBJS += slice.o
 OBJS += meta.o
-OBJS += logger.o
 OBJS += timer.o
 OBJS += cli.o
 OBJS += store_manager.o
