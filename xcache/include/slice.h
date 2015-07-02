@@ -35,7 +35,7 @@ public:
 
   void addMeta(XcacheMeta *);
 
-  int store(XcacheMeta *, std::string);
+  int store(XcacheMeta *);
 
   std::string search(XcacheCommand *);
 

@@ -1,6 +1,7 @@
 #ifndef __XCACHE_H__
 #define __XCACHE_H__
 
+#include "Xsocket.h"
 #include <stddef.h>
 #include <stdint.h>
 

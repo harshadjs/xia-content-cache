@@ -1,6 +1,8 @@
 #include "slice.h"
 #include "meta.h"
 
+#define IGNORE_PARAM(__param) ((void)__param)
+
 XcacheMeta::XcacheMeta(XcacheCommand *cmd)
 {
   refCount = 0;
@@ -28,6 +30,7 @@ void XcacheMeta::addedToSlice(XcacheSlice *slice)
 
 void XcacheMeta::removedFromSlice(XcacheSlice *slice)
 {
+  IGNORE_PARAM(slice);
   deref();  
 }
 

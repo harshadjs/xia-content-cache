@@ -1,6 +1,6 @@
 CC=g++
 AR=ar
-CFLAGS=-g -I../../click/include/click
+CFLAGS+=-g -I../../click/include/click
 OBJS=XcacheAllocSlice.o XcacheGetChunk.o XcacheInit.o XcacheMain.o XcachePutChunk.o
 
 lib: $(OBJS)

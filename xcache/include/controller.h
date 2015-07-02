@@ -22,6 +22,7 @@ private:
   std::map<int32_t, XcacheSlice *> sliceMap;
 
   int newSlice(XcacheCommand *, XcacheCommand *);
+  int startXcache(void);
   XcacheSlice *lookupSlice(XcacheCommand *);
   XcacheStoreManager storeManager;
 

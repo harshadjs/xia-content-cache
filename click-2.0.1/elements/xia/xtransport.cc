@@ -54,6 +54,7 @@ XTRANSPORT::configure(Vector<String> &conf, ErrorHandler *errh)
 	Element* routing_table_elem;
 	bool is_dual_stack_router;
 	_is_dual_stack_router = false;
+    char xidString[50];
 
 	if (cp_va_kparse(conf, this, errh,
 					 "LOCAL_ADDR", cpkP + cpkM, cpXIAPath, &local_addr,
@@ -65,6 +66,11 @@ XTRANSPORT::configure(Vector<String> &conf, ErrorHandler *errh)
 
 	_local_addr = local_addr;
 	_local_hid = local_addr.xid(local_addr.destination_node());
+
+    /* TODO: How should we choose xcacheSid? */
+    random_xid("SID", xidString);
+    _xcache_sid.parse(xidString);
+
 	_local_4id = local_4id;
 	// IP:0.0.0.0 indicates NULL 4ID
 	_null_4id.parse("IP:0.0.0.0");
@@ -441,6 +447,9 @@ void XTRANSPORT::ProcessAPIPacket(WritablePacket *p_in)
 		break;
 	case xia::XREADLOCALHOSTADDR:
 		Xreadlocalhostaddr(_sport);
+		break;
+	case xia::XREADXCACHESID:
+      XreadXcacheSid(_sport);
 		break;
 	case xia::XUPDATENAMESERVERDAG:
 		Xupdatenameserverdag(_sport);
@@ -1683,6 +1692,21 @@ void XTRANSPORT::Xreadlocalhostaddr(unsigned short _sport)
 	_msg->set_ad(AD_str.c_str());
 	_msg->set_hid(HID_str.c_str());
 	_msg->set_ip4id(IP4ID_str.c_str());
+	std::string p_buf1;
+	_Response.SerializeToString(&p_buf1);
+	WritablePacket *reply = WritablePacket::make(256, p_buf1.c_str(), p_buf1.size(), 0);
+	output(API_PORT).push(UDPIPPrep(reply, _sport));
+}
+
+void XTRANSPORT::XreadXcacheSid(unsigned short _sport)
+{
+	// read the localhost AD and HID
+	String xcacheSid = _xcache_sid.unparse();
+	// return a packet containing localhost AD and HID
+	xia::XSocketMsg _Response;
+	_Response.set_type(xia::XREADXCACHESID);
+	xia::X_ReadXcacheSid_Msg *_msg = _Response.mutable_x_readxcachesid();
+	_msg->set_sid(xcacheSid.c_str());
 	std::string p_buf1;
 	_Response.SerializeToString(&p_buf1);
 	WritablePacket *reply = WritablePacket::make(256, p_buf1.c_str(), p_buf1.size(), 0);

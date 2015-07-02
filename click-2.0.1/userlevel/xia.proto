@@ -24,12 +24,13 @@ enum XSocketCallType {
 
   XCHANGEAD = 19;
   XREADLOCALHOSTADDR = 20;  
-  XUPDATENAMESERVERDAG = 21;
-  XREADNAMESERVERDAG = 22;
+  XREADXCACHESID = 21;  
+  XUPDATENAMESERVERDAG = 22;
+  XREADNAMESERVERDAG = 23;
   
-  XISDUALSTACKROUTER = 23;
-  XGETPEERNAME = 24;
-  XGETSOCKNAME = 25;
+  XISDUALSTACKROUTER = 24;
+  XGETPEERNAME = 25;
+  XGETSOCKNAME = 26;
 
   XPUSHCHUNKTO = 27;
   XBINDPUSH = 28;
@@ -61,15 +62,16 @@ message XSocketMsg {
 
   optional X_Changead_Msg x_changead = 20;
   optional X_ReadLocalHostAddr_Msg x_readlocalhostaddr = 21;  
-  optional X_Updatenameserverdag_Msg x_updatenameserverdag = 22;  
-  optional X_ReadNameServerDag_Msg x_readnameserverdag = 23; 
+  optional X_ReadXcacheSid_Msg x_readxcachesid = 22;
+  optional X_Updatenameserverdag_Msg x_updatenameserverdag = 23;  
+  optional X_ReadNameServerDag_Msg x_readnameserverdag = 24; 
   
-  optional X_IsDualStackRouter_Msg x_isdualstackrouter = 24;   
-  optional X_GetPeername_Msg x_getpeername = 25;
-  optional X_GetSockname_Msg x_getsockname = 26; 
+  optional X_IsDualStackRouter_Msg x_isdualstackrouter = 25;   
+  optional X_GetPeername_Msg x_getpeername = 26;
+  optional X_GetSockname_Msg x_getsockname = 27; 
 
-  optional X_Pushchunkto_Msg x_pushchunkto= 27;
-  optional X_BindPush_Msg x_bindpush= 28;
+  optional X_Pushchunkto_Msg x_pushchunkto= 28;
+  optional X_BindPush_Msg x_bindpush= 29;
 }
  
 message X_Socket_Msg {
@@ -179,6 +181,10 @@ message X_ReadLocalHostAddr_Msg {
   optional string ad = 1;
   optional string hid = 2;
   optional string ip4id = 3;
+}
+
+message X_ReadXcacheSid_Msg {
+  optional string sid = 1;
 }
 
 message X_Updatenameserverdag_Msg {

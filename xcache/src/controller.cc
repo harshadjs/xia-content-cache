@@ -11,6 +11,12 @@
 #include <errno.h>
 #include "controller.h"
 #include <iostream>
+#include "Xsocket.h"
+#include "dagaddr.hpp"
+
+#define IGNORE_PARAM(__param) ((void)__param)
+
+#define MAX_XID_SIZE 100
 
 #define OK_SEND_RESPONSE 1
 #define OK_NO_RESPONSE 0
@@ -92,6 +98,7 @@ void XcacheController::status(void)
 
 void XcacheController::handleUdp(int s)
 {
+  IGNORE_PARAM(s);
 }
 
 int XcacheController::handleCmd(XcacheCommand *resp, XcacheCommand *cmd)
@@ -176,7 +183,7 @@ int XcacheController::store(XcacheCommand *cmd)
   if(!slice)
     return -1;
 
-  if(slice->store(meta, cmd->data()) < 0) {
+  if(slice->store(meta) < 0) {
     std::cout << "Slice store failed\n";
     return -1;
   }
@@ -186,7 +193,13 @@ int XcacheController::store(XcacheCommand *cmd)
 
 int XcacheController::search(XcacheCommand *resp, XcacheCommand *cmd)
 {
+  int xcacheRecvSock = Xsocket(AF_XIA, SOCK_STREAM, 0);
+
+  IGNORE_PARAM(resp);
+
+#ifdef TODOEnableLocalSearch
   XcacheSlice *slice;
+  Graph g(cmd->dag);
 
   std::cout << "Search Request\n";
   slice = lookupSlice(cmd);
@@ -199,7 +212,45 @@ int XcacheController::search(XcacheCommand *resp, XcacheCommand *cmd)
     resp->set_data(data);
     std::cout << "Looked up Data = " << data << "\n";
   }
+#else
+  
+  if(Xconnect(xcacheRecvSock, (struct sockaddr *)&cmd->dag(), sizeof(cmd->dag())) < 0) {
+    std::cout << "TODO THIS IS ERROR\n";
+  };
+
+#endif
+
   return OK_SEND_RESPONSE;
+}
+
+int XcacheController::startXcache(void)
+{
+  char xcacheSID[MAX_XID_SIZE];
+  int xcacheSock;
+
+  if ((xcacheSock = Xsocket(AF_XIA, SOCK_STREAM, 0)) < 0)
+    return -1;
+
+  if(XreadXcacheSID(xcacheSock, xcacheSID, sizeof(xcacheSID)) < 0)
+    return -1;
+
+  std::cout << "XcacheSID is " << xcacheSID << "\n";
+
+  struct addrinfo *ai;
+
+  if (Xgetaddrinfo(NULL, xcacheSID, NULL, &ai) != 0)
+    return -1;
+
+  sockaddr_x *dag = (sockaddr_x*)ai->ai_addr;
+
+  if (Xbind(xcacheSock, (struct sockaddr*)dag, sizeof(dag)) < 0) {
+    Xclose(xcacheSock);
+    return -1;
+  }
+
+  Graph g(dag);
+  std::cout << "listening on dag: " << g.dag_string() << "\n";
+  return xcacheSock;
 }
 
 void XcacheController::run(void)
@@ -212,11 +263,12 @@ void XcacheController::run(void)
 
   s = xcache_create_click_socket(1444);
   libsocket = xcache_create_lib_socket();
+  startXcache();
 
   FD_ZERO(&fds);
   FD_SET(s, &allfds);
   FD_SET(libsocket, &allfds);
-#define MAX(_a, _b) ((_a > _b) ? (_a) : (_b))
+  //#define MAX(_a, _b) ((_a > _b) ? (_a) : (_b))
 
   xcache_set_timeout(&timeout);
 

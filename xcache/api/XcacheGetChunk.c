@@ -1,14 +1,18 @@
+#include "Xsocket.h"
 #include "xcache.h"
 #include "xcachePriv.h"
 
 /* API */
-int XcacheGetChunk(xcacheSlice *slice, xcacheChunk *chunk, int flags)
+int XcacheGetChunk(xcacheSlice *slice, xcacheChunk *chunk, sockaddr_x *addr, socklen_t len, int flags)
 {
   XcacheCommand cmd;
 
+  /* Flags currently unused */
+  (void)flags;
+
   cmd.set_cmd(XcacheCommand::XCACHE_GETCHUNK);
-  cmd.set_contextid(slice->contextId);
-  cmd.set_cid(std::string(chunk->cid));
+  cmd.set_contextid((slice) ? slice->contextId : 0);
+  cmd.set_dag(addr, len);
 
   if(send_command(&cmd) < 0) {
     /* Error in Sending chunk */

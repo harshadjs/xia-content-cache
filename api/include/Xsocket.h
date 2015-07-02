@@ -172,6 +172,7 @@ extern int XgetDAGbyName(const char *name, sockaddr_x *addr, socklen_t *addrlen)
 extern int XregisterName(const char *name, sockaddr_x *addr);
 
 extern int XreadLocalHostAddr(int sockfd, char *localhostAD, unsigned lenAD, char *localhostHID, unsigned lenHID, char *local4ID, unsigned len4ID);
+extern int XreadXcacheSID(int sockfd, char *, unsigned);
 
 /* internal only functions */
 extern int XupdateAD(int sockfd, char *newad, char *new4id);

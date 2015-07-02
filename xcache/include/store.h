@@ -30,6 +30,10 @@ public:
    * take policy decisions.
    */
   virtual int store(XcacheMeta *meta, std::string data) {
+    /* Ignoring compiler error for unused attribute */
+    (void)meta;
+    (void)data;
+
     return 0;
   };
 
@@ -41,6 +45,9 @@ public:
    *                a std::string and then pass it back to the storeManager.
    */
   virtual std::string get(XcacheMeta *meta) {
+    /* Ignoring compiler error for unused attribute */
+    (void)meta;
+
     return NULL;
   };
 

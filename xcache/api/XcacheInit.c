@@ -7,7 +7,6 @@
 int XcacheInit(void)
 {
   struct sockaddr_un xcache_addr;
-  socklen_t len;
 
   xcache_sock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
   if(xcache_sock < 0)

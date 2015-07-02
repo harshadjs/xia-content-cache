@@ -16,8 +16,9 @@ message XcacheCommand {
 
   optional int32 contextId = 2;
   optional bytes cid = 3;
-  optional bytes data = 4;
-  optional int32 ttl = 5;
-  optional int32 cacheSize = 6;
-  optional int32 cachePolicy = 7;
+  optional bytes dag = 4;
+  optional bytes data = 5;
+  optional int32 ttl = 6;
+  optional int32 cacheSize = 7;
+  optional int32 cachePolicy = 8;
 };

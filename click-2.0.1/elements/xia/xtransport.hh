@@ -112,6 +112,7 @@ class XTRANSPORT : public Element {
     unsigned _teardown_wait_ms;
     
     uint32_t _cid_type, _sid_type;
+    XID _xcache_sid;
     XID _local_hid;
     XIAPath _local_addr;
     XID _local_4id;
@@ -224,6 +225,7 @@ class XTRANSPORT : public Element {
     void Xaccept(unsigned short _sport);
     void Xchangead(unsigned short _sport);
     void Xreadlocalhostaddr(unsigned short _sport);
+    void XreadXcacheSid(unsigned short _sport);
     void Xupdatenameserverdag(unsigned short _sport);
     void Xreadnameserverdag(unsigned short _sport);
     void Xgetpeername(unsigned short _sport);

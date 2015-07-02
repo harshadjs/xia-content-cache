@@ -3,7 +3,7 @@
 
 int XcacheStoreManager::store(XcacheMeta *meta, std::string data)
 {
-  int ret;
+  int ret = -1;
 
   std::cout << "StoreManager: Store\n";
   for(std::vector<XcacheContentStore *>::iterator i = storeVector.begin(); i != storeVector.end(); ++i) {

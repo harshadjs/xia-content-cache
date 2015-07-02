@@ -4,7 +4,6 @@
 /* API */
 int XcachePutChunk(xcacheSlice *slice, xcacheChunk *chunk)
 {
-  int ret;
   XcacheCommand cmd;
 
   cmd.set_cmd(XcacheCommand::XCACHE_STORE);

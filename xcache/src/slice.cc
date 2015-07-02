@@ -54,7 +54,7 @@ bool XcacheSlice::alreadyHasMeta(XcacheMeta *meta)
   return false;
 }
 
-int XcacheSlice::store(XcacheMeta *meta, std::string data)
+int XcacheSlice::store(XcacheMeta *meta)
 {
   if(alreadyHasMeta(meta))
     return -1;
