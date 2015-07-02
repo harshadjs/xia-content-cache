@@ -11,7 +11,10 @@ int XcacheGetChunk(xcacheSlice *slice, xcacheChunk *chunk, sockaddr_x *addr, soc
   (void)flags;
 
   cmd.set_cmd(XcacheCommand::XCACHE_GETCHUNK);
-  cmd.set_contextid((slice) ? slice->contextId : 0);
+
+  if(slice)
+    cmd.set_contextid(slice->contextId);
+
   cmd.set_dag(addr, len);
 
   if(send_command(&cmd) < 0) {

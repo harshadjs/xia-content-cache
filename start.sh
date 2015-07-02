@@ -1,18 +1,19 @@
 #!/bin/bash
 
 router=1
-nameserver=1
+nameserver=0
 
-sudo ifconfig eth1 up
+sudo ifconfig enp2s0 up
 if [ "$router" = "1" ]; then
-	sudo ifconfig eth2 up
+##	sudo ifconfig eth2 up
+	echo ""
 fi
 
 if [ "$router" = "1" ]; then
 	if [ "$nameserver" = "1" ]; then
 		flags="-r -n"
 	else
-		flags="-r"
+		flags="-r -vvvv"
 	fi
 else
 	if [ "$nameserver" = "1" ]; then

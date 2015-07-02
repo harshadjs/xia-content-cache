@@ -20,8 +20,9 @@ struct xcacheSlice {
 };
 
 int XcacheInit(void);
-int XcacheGetChunk(xcacheSlice *slice, xcacheChunk *chunk, int flags);
+int XcacheGetChunk(xcacheSlice *slice, xcacheChunk *chunk, sockaddr_x *addr, socklen_t len, int flags);
 int XcacheAllocateSlice(struct xcacheSlice *slice, int32_t cache_size, int32_t ttl, int32_t cache_policy);
 int XcachePutChunk(xcacheSlice *slice, xcacheChunk *chunk);
+int XcachePutFile(struct xcacheSlice *slice, const char *fname, unsigned chunkSize, struct xcacheChunk **chunks);
 
 #endif
