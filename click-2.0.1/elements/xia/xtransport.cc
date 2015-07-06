@@ -8,7 +8,6 @@
 #include <click/vector.hh>
 
 #include <click/xiacontentheader.hh>
-#include "xiatransport.hh"
 #include "xtransport.hh"
 #include <click/xiatransportheader.hh>
 

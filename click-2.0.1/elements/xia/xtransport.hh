@@ -10,7 +10,6 @@
 #include <click/handlercall.hh>
 #include <click/xiapath.hh>
 #include <clicknet/xia.h>
-#include "xiacontentmodule.hh"
 #include "xiaxidroutetable.hh"
 #include <clicknet/udp.h>
 #include <click/string.hh>
@@ -79,8 +78,6 @@ output[0]: Socket (API) Tx data port
 
 Might need other things to handle chunking
 */
-
-class XIAContentModule;   
 
 class XTRANSPORT : public Element { 
   public:
